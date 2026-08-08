@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <AssemblyName>Emby.ActorBrowser</AssemblyName>
+    <RootNamespace>Emby.ActorBrowser</RootNamespace>
+    <Version>0.1.12</Version>
+    <EmbySdkVersion Condition="'$(EmbySdkVersion)' == ''">4.9.1.90</EmbySdkVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MediaBrowser.Server.Core" Version="$(EmbySdkVersion)" PrivateAssets="All" />
+    <PackageReference Include="System.Memory" Version="4.6.0" PrivateAssets="All" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Web/actor-browser.html" />
+  </ItemGroup>
+</Project>

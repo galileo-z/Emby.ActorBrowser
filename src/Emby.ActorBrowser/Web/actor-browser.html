@@ -1,0 +1,478 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>演员库 · Emby</title>
+  <style>
+    :root { color-scheme: dark; --bg:#101010; --panel:#181818; --panel2:#232323; --text:#f3f3f3; --muted:#a9a9a9; --accent:#52b54b; --radius:10px; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--bg); color:var(--text); font:14px/1.45 system-ui,-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif; }
+    button,input { font:inherit; }
+    .top { position:sticky; top:0; z-index:5; background:rgba(16,16,16,.96); backdrop-filter:blur(8px); border-bottom:1px solid #2a2a2a; }
+    .bar { max-width:1500px; margin:auto; padding:16px 22px 12px; display:flex; gap:14px; align-items:center; }
+    h1 { font-size:22px; margin:0; white-space:nowrap; }
+    .search { flex:1; max-width:560px; border:1px solid #404040; border-radius:999px; background:#222; color:#fff; padding:10px 16px; outline:none; }
+    .search:focus { border-color:#777; }
+    .home { margin-left:auto; color:#ddd; text-decoration:none; padding:8px 10px; }
+    .letters { max-width:1500px; margin:auto; padding:0 22px 13px; display:flex; flex-wrap:wrap; gap:6px; }
+    .letters button { border:0; background:#252525; color:#ddd; border-radius:7px; min-width:32px; padding:7px 9px; cursor:pointer; }
+    .letters button.active,.letters button:hover { background:var(--accent); color:#fff; }
+    main { max-width:1500px; margin:auto; padding:18px 22px 40px; }
+    .meta { color:var(--muted); margin:0 0 14px; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(145px,1fr)); gap:18px 14px; }
+    .grid.worksGrid { grid-auto-flow:dense; align-items:start; }
+    .card { cursor:pointer; min-width:0; }
+    .editPhoto { position:absolute; right:8px; top:8px; z-index:3; border:1px solid rgba(255,255,255,.24); border-radius:7px; padding:6px 9px; background:rgba(0,0,0,.72); color:#fff; font-size:12px; cursor:pointer; opacity:0; transition:opacity .15s ease,background .15s ease; }
+    .card:hover .editPhoto,.editPhoto:focus { opacity:1; }
+    .editPhoto:hover { background:rgba(0,0,0,.9); }
+    .editPhoto:disabled { opacity:.8; cursor:wait; }
+    .portrait,.poster { position:relative; overflow:hidden; border-radius:var(--radius); background:linear-gradient(145deg,#303030,#1d1d1d); box-shadow:0 2px 12px rgba(0,0,0,.22); }
+    .portrait { aspect-ratio:2/3; }
+    .poster { aspect-ratio:2/3; }
+    .workCard.landscape { grid-column:span 2; }
+    .workCard.landscape .poster { aspect-ratio:16/9; }
+    img { width:100%; height:100%; display:block; }
+    .portrait img { object-fit:cover; }
+    .poster img { object-fit:contain; background:#181818; }
+    .fallback { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:36px; font-weight:650; color:#aaa; }
+    .personFallback::before { content:""; width:42%; aspect-ratio:1/1.18; display:block; opacity:.45; background:radial-gradient(circle at 50% 28%,#aaa 0 20%,transparent 21%),radial-gradient(ellipse at 50% 90%,#aaa 0 42%,transparent 43%); }
+    .name { margin-top:8px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .sub { color:var(--muted); font-size:12px; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .pager { margin:28px auto 0; display:flex; justify-content:center; align-items:center; flex-wrap:wrap; gap:6px; }
+    .pager[hidden] { display:none !important; }
+    .pager button { min-width:38px; height:38px; border:0; border-radius:8px; padding:0 11px; background:#292929; color:#eee; cursor:pointer; }
+    .pager button:hover:not(:disabled),.pager button.active { background:var(--accent); color:#fff; }
+    .pager button:disabled { opacity:.38; cursor:default; }
+    .pager .ellipsis { color:#777; padding:0 2px; }
+    .more { display:block; margin:28px auto 0; border:0; border-radius:8px; padding:10px 22px; background:#2d2d2d; color:#fff; cursor:pointer; }
+    .more[hidden] { display:none !important; }
+    .more:hover { background:#3b3b3b; }
+    .empty,.error { padding:28px 4px; color:var(--muted); }
+    .detailHead { display:flex; align-items:center; gap:14px; margin-bottom:18px; }
+    .back { border:0; border-radius:8px; padding:8px 12px; background:#292929; color:#fff; cursor:pointer; }
+    .detailTitle { font-size:24px; margin:0; }
+    .typeTag { display:inline-block; padding:2px 6px; border-radius:4px; background:#292929; color:#bbb; margin-right:5px; }
+    .toast { position:fixed; left:50%; bottom:28px; z-index:20; transform:translate(-50%,18px); padding:10px 14px; border-radius:8px; background:#2c2c2c; color:#fff; box-shadow:0 5px 22px rgba(0,0,0,.42); opacity:0; pointer-events:none; transition:opacity .18s ease,transform .18s ease; max-width:min(90vw,620px); }
+    .toast.show { opacity:1; transform:translate(-50%,0); }
+    .toast.errorToast { background:#7c2929; }
+    @media (hover:none) { .editPhoto { opacity:.86; } }
+    @media (max-width:600px){ .bar{padding:12px 12px 9px}.letters{padding:0 12px 10px}main{padding:14px 12px 30px}.grid{grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:14px 10px}h1{font-size:18px}.home{display:none}.pager button{min-width:34px;height:36px;padding:0 9px} }
+    @media (max-width:360px){ .workCard.landscape { grid-column:1 / -1; } }
+  </style>
+</head>
+<body>
+  <div class="top">
+    <div class="bar">
+      <h1 id="title">演员库</h1>
+      <input id="search" class="search" placeholder="搜索演员…" autocomplete="off">
+      <a class="home" href="/web/index.html#!/home">返回 Emby</a>
+    </div>
+    <div id="letters" class="letters"></div>
+  </div>
+  <main>
+    <p id="meta" class="meta">正在读取演员…</p>
+    <div id="grid" class="grid"></div>
+    <div id="pager" class="pager" hidden></div>
+    <button id="more" class="more" hidden>加载更多作品</button>
+  </main>
+  <input id="photoPicker" type="file" accept="image/jpeg,image/png,image/webp" hidden>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+<script>
+(() => {
+  'use strict';
+  const actorPageSize = 120;
+  const maxVisiblePageButtons = 17;
+  const workPageSize = 120;
+  const root = location.pathname.replace(/\/ActorBrowser\/?$/i, '');
+  const apiBase = root + '/ActorBrowser';
+  const embyBase = location.pathname.toLowerCase().startsWith('/emby/') ? '/emby' : '';
+  const pageParams = new URLSearchParams(location.search);
+  const apiKey = pageParams.get('api_key') || '';
+  let serverId = '';
+
+  function withApiKey(url) {
+    if (!apiKey) return url;
+    return url + (url.includes('?') ? '&' : '?') + 'api_key=' + encodeURIComponent(apiKey);
+  }
+
+  const el = id => document.getElementById(id);
+  const grid = el('grid'), meta = el('meta'), pager = el('pager'), more = el('more'), search = el('search'), letters = el('letters'), title = el('title');
+  const photoPicker = el('photoPicker'), toast = el('toast');
+  let actors = [], actorTotal = 0, actorPage = 1, actorRequestSeq = 0, activeLetter = '全部', searchTimer = null, pendingPhotoActor = null, toastTimer = null;
+  let currentView = 'actors', currentActor = null, workItems = [], workOffset = 0, workTotal = 0;
+
+  const groups = ['全部',...'ABCDEFGHIJKLMNOPQRSTUVWXYZ','中文/其他'];
+  groups.forEach(g => {
+    const b = document.createElement('button');
+    b.textContent = g;
+    if (g === activeLetter) b.classList.add('active');
+    b.onclick = () => {
+      activeLetter = g;
+      actorPage = 1;
+      [...letters.children].forEach(x => x.classList.toggle('active', x === b));
+      loadActorPage(1, true);
+    };
+    letters.appendChild(b);
+  });
+
+  function imageUrl(id, width=360) { return withApiKey(`${embyBase}/Items/${encodeURIComponent(id)}/Images/Primary?maxWidth=${width}&quality=90`); }
+  function initials(name) { return (name || '?').trim().slice(0,2).toUpperCase(); }
+  function esc(s) { return String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+
+  async function fetchJson(url) {
+    const r = await fetch(withApiKey(url), {credentials:'same-origin'});
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return r.json();
+  }
+
+  function showToast(message, isError=false) {
+    clearTimeout(toastTimer);
+    toast.textContent = message;
+    toast.classList.toggle('errorToast', !!isError);
+    toast.classList.add('show');
+    toastTimer = setTimeout(() => toast.classList.remove('show'), 2600);
+  }
+
+  function readFileAsBase64(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error('无法读取图片文件'));
+      reader.onload = () => {
+        const value = String(reader.result || '');
+        const comma = value.indexOf(',');
+        if (comma < 0) return reject(new Error('无法解析图片文件'));
+        resolve(value.slice(comma + 1));
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function uploadActorPhoto(actor, file) {
+    const id = actor && (actor.Id ?? actor.id);
+    if (!id) throw new Error('演员 ID 无效');
+    if (!file || !/^image\/(jpeg|png|webp)$/i.test(file.type || '')) throw new Error('请选择 JPG、PNG 或 WebP 图片');
+
+    const base64 = await readFileAsBase64(file);
+    const url = withApiKey(`${embyBase}/Items/${encodeURIComponent(id)}/Images/Primary`);
+    const r = await fetch(url, {
+      method:'POST',
+      credentials:'same-origin',
+      headers:{'Content-Type': file.type || 'image/jpeg'},
+      body:base64
+    });
+    if (!r.ok) {
+      if (r.status === 401 || r.status === 403) throw new Error('没有修改图片的权限；Emby 上传主图需要管理员权限');
+      let detail = '';
+      try { detail = (await r.text()).trim(); } catch (_) {}
+      throw new Error(`上传失败：HTTP ${r.status}${detail ? ' · ' + detail : ''}`);
+    }
+    return id;
+  }
+
+  async function loadServerInfo() {
+    try {
+      const r = await fetchJson(`${embyBase}/System/Info/Public`);
+      serverId = r.Id || r.id || '';
+    } catch (_) {
+      serverId = '';
+    }
+  }
+
+  function actorRequestUrl(page) {
+    const startIndex = Math.max(0, (page - 1) * actorPageSize);
+    const params = new URLSearchParams();
+    params.set('startIndex', String(startIndex));
+    params.set('limit', String(actorPageSize));
+    const q = search.value.trim();
+    if (q) params.set('search', q);
+    if (activeLetter !== '全部') params.set('group', activeLetter);
+    return `${apiBase}/People?${params.toString()}`;
+  }
+
+  async function loadActorPage(page, scrollToTop=false) {
+    if (currentView !== 'actors') return;
+    const requestSeq = ++actorRequestSeq;
+    const targetPage = Math.max(1, Number(page) || 1);
+    more.hidden = true;
+    pager.hidden = true;
+    meta.textContent = `正在读取第 ${targetPage} 页演员…`;
+    try {
+      const r = await fetchJson(actorRequestUrl(targetPage));
+      if (requestSeq !== actorRequestSeq || currentView !== 'actors') return;
+      actors = r.Items || r.items || [];
+      actorTotal = r.TotalRecordCount ?? r.totalRecordCount ?? actors.length;
+      const totalPages = Math.max(1, Math.ceil(actorTotal / actorPageSize));
+      if (targetPage > totalPages && actorTotal > 0) {
+        return loadActorPage(totalPages, scrollToTop);
+      }
+      actorPage = Math.min(targetPage, totalPages);
+      renderActors();
+      renderActorPager();
+      if (scrollToTop) document.querySelector('main').scrollIntoView({behavior:'smooth', block:'start'});
+    } catch (e) {
+      if (requestSeq !== actorRequestSeq) return;
+      showError('读取演员失败：' + e.message);
+    }
+  }
+
+  function makePagerButton(label, page, disabled=false, active=false, titleText='') {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = label;
+    if (titleText) b.title = titleText;
+    b.disabled = disabled;
+    b.classList.toggle('active', active);
+    if (!disabled && !active) b.onclick = () => loadActorPage(page, true);
+    return b;
+  }
+
+  function addEllipsis() {
+    const span = document.createElement('span');
+    span.className = 'ellipsis';
+    span.textContent = '…';
+    pager.appendChild(span);
+  }
+
+  function renderActorPager() {
+    if (currentView !== 'actors') { pager.hidden = true; return; }
+    const totalPages = Math.max(1, Math.ceil(actorTotal / actorPageSize));
+    pager.innerHTML = '';
+    if (actorTotal <= actorPageSize) { pager.hidden = true; return; }
+    pager.hidden = false;
+
+    pager.appendChild(makePagerButton('上一页', actorPage - 1, actorPage <= 1, false, '上一页'));
+
+    let pages = [];
+    if (totalPages <= maxVisiblePageButtons) {
+      for (let p = 1; p <= totalPages; p++) pages.push(p);
+    } else {
+      // Keep the first/last page visible and show a much wider sliding window
+      // around the current page. With 17 numeric buttons this gives 15
+      // consecutive middle-page choices at once.
+      const innerCount = maxVisiblePageButtons - 2;
+      let start = actorPage - Math.floor(innerCount / 2);
+      let end = start + innerCount - 1;
+
+      if (start < 2) {
+        start = 2;
+        end = start + innerCount - 1;
+      }
+      if (end > totalPages - 1) {
+        end = totalPages - 1;
+        start = end - innerCount + 1;
+      }
+
+      pages.push(1);
+      for (let p = start; p <= end; p++) pages.push(p);
+      pages.push(totalPages);
+    }
+
+    let previous = 0;
+    pages.forEach(p => {
+      if (previous && p - previous > 1) addEllipsis();
+      pager.appendChild(makePagerButton(String(p), p, false, p === actorPage, `第 ${p} 页`));
+      previous = p;
+    });
+
+    pager.appendChild(makePagerButton('下一页', actorPage + 1, actorPage >= totalPages, false, '下一页'));
+  }
+
+  function showMoreForWorks() {
+    if (currentView !== 'works') return;
+    pager.hidden = true;
+    more.textContent = '加载更多作品';
+    more.onclick = loadMoreWorks;
+    more.hidden = workOffset >= workTotal;
+  }
+
+  function renderActors() {
+    title.textContent = '演员库';
+    const totalPages = Math.max(1, Math.ceil(actorTotal / actorPageSize));
+    const start = actorTotal ? (actorPage - 1) * actorPageSize + 1 : 0;
+    const end = actorTotal ? Math.min(actorPage * actorPageSize, actorTotal) : 0;
+    meta.textContent = actorTotal
+      ? `共 ${actorTotal} 位演员 · 第 ${actorPage} / ${totalPages} 页 · 当前 ${start}–${end}`
+      : '没有匹配的演员。';
+    grid.classList.remove('worksGrid');
+    grid.innerHTML = '';
+    if (!actors.length) { grid.innerHTML = '<div class="empty">没有匹配的演员。</div>'; return; }
+    const frag = document.createDocumentFragment();
+    actors.forEach(a => {
+      const id = a.Id ?? a.id, internalId = a.InternalId ?? a.internalId, name = a.Name ?? a.name ?? '', count = a.WorkCount ?? a.workCount ?? 0;
+      const c = document.createElement('div'); c.className='card'; c.tabIndex=0;
+      c.innerHTML = `<div class="portrait"><button class="editPhoto" type="button" title="修改演员照片" aria-label="修改 ${esc(name)} 的照片">换图</button><div class="fallback personFallback" aria-hidden="true"></div><img loading="lazy" src="${imageUrl(id)}" alt="${esc(name)}"></div><div class="name">${esc(name)}</div><div class="sub">${count ? `${count} 部作品` : '查看作品'}</div>`;
+      const img = c.querySelector('img');
+      const fallback = c.querySelector('.fallback');
+      const edit = c.querySelector('.editPhoto');
+      img.onload = () => { if (fallback) fallback.style.display = 'none'; };
+      img.onerror = () => img.remove();
+      edit.onclick = e => {
+        e.preventDefault(); e.stopPropagation();
+        pendingPhotoActor = { actor:a, card:c, button:edit };
+        photoPicker.value = '';
+        photoPicker.click();
+      };
+      c.onclick = () => showActor(internalId, name, id);
+      c.onkeydown = e => { if (e.key === 'Enter') c.click(); };
+      frag.appendChild(c);
+    });
+    grid.appendChild(frag);
+  }
+
+  async function showActor(personId, name, imageId) {
+    search.blur();
+    currentView = 'works';
+    currentActor = { personId, name, imageId };
+    workItems = [];
+    workOffset = 0;
+    workTotal = 0;
+    title.textContent = name;
+    search.style.display='none';
+    letters.style.display='none';
+    pager.hidden=true;
+    more.hidden=true;
+    more.onclick=null;
+    meta.innerHTML = `<div class="detailHead"><button id="back" class="back">← 演员列表</button><div><h2 class="detailTitle">${esc(name)}</h2><div class="sub">正在读取出演作品…</div></div></div>`;
+    grid.classList.add('worksGrid');
+    grid.innerHTML = '';
+    el('back').onclick = () => {
+      currentView = 'actors';
+      currentActor = null;
+      workItems = [];
+      workOffset = 0;
+      workTotal = 0;
+      search.style.display='';
+      letters.style.display='';
+      more.hidden=true;
+      more.onclick=null;
+      renderActors();
+      renderActorPager();
+    };
+    try {
+      const r = await fetchJson(`${apiBase}/Items?personId=${encodeURIComponent(personId)}&startIndex=0&limit=${workPageSize}`);
+      workItems = r.Items || r.items || [];
+      workOffset = workItems.length;
+      workTotal = r.TotalRecordCount ?? r.totalRecordCount ?? workOffset;
+      meta.querySelector('.sub').textContent = `${workTotal} 部电影 / 剧集`;
+      renderWorks(workItems);
+      showMoreForWorks();
+    } catch (e) {
+      grid.innerHTML = `<div class="error">读取出演作品失败：${esc(e.message)}</div>`;
+      more.hidden = true;
+    }
+  }
+
+  async function loadMoreWorks() {
+    if (currentView !== 'works' || !currentActor) return;
+    try {
+      more.disabled = true;
+      const r = await fetchJson(`${apiBase}/Items?personId=${encodeURIComponent(currentActor.personId)}&startIndex=${workOffset}&limit=${workPageSize}`);
+      const rows = r.Items || r.items || [];
+      workItems.push(...rows);
+      workOffset += rows.length;
+      workTotal = r.TotalRecordCount ?? r.totalRecordCount ?? workTotal;
+      if (!rows.length) workOffset = workTotal;
+      const sub = meta.querySelector('.sub');
+      if (sub) sub.textContent = `${workTotal} 部电影 / 剧集`;
+      renderWorks(workItems);
+      showMoreForWorks();
+    } catch (e) {
+      const sub = meta.querySelector('.sub');
+      if (sub) sub.textContent = `继续加载作品失败：${e.message}`;
+    } finally {
+      more.disabled = false;
+    }
+  }
+
+  function renderWorks(items) {
+    grid.classList.add('worksGrid');
+    grid.innerHTML='';
+    if (!items.length) { grid.innerHTML='<div class="empty">没有找到电影或剧集。</div>'; return; }
+    const frag=document.createDocumentFragment();
+    items.forEach(i => {
+      const id=i.Id ?? i.id, internalId=i.InternalId ?? i.internalId ?? '', name=i.Name ?? i.name ?? '', type=i.Type ?? i.type ?? '', year=i.ProductionYear ?? i.productionYear ?? '';
+      const c=document.createElement('div'); c.className='card workCard';
+      c.innerHTML=`<div class="poster"><div class="fallback">${esc(initials(name))}</div><img loading="lazy" src="${imageUrl(id, 720)}" alt="${esc(name)}"></div><div class="name">${esc(name)}</div><div class="sub"><span class="typeTag">${esc(type === 'Series' ? '剧集' : type === 'Movie' ? '电影' : type)}</span>${esc(year)}</div>`;
+      const img=c.querySelector('img');
+      const fallback=c.querySelector('.fallback');
+      img.onload=()=>{
+        if(fallback) fallback.style.display='none';
+        const w=img.naturalWidth || 0, h=img.naturalHeight || 0;
+        if(w > h * 1.15) {
+          c.classList.add('landscape');
+          const poster=c.querySelector('.poster');
+          if(poster && w && h) poster.style.aspectRatio=`${w} / ${h}`;
+        }
+      };
+      img.onerror=()=>img.remove();
+      c.onclick=()=>{
+        const routeId = internalId || id;
+        const serverPart = serverId ? `&serverId=${encodeURIComponent(serverId)}` : '';
+        location.href = `/web/index.html#!/item?id=${encodeURIComponent(routeId)}${serverPart}`;
+      };
+      frag.appendChild(c);
+    });
+    grid.appendChild(frag);
+  }
+
+  function showError(message) {
+    meta.textContent='';
+    grid.innerHTML=`<div class="error">${esc(message)}</div>`;
+    pager.hidden=true;
+    more.hidden=true;
+  }
+
+  photoPicker.addEventListener('change', async () => {
+    const file = photoPicker.files && photoPicker.files[0];
+    const pending = pendingPhotoActor;
+    if (!file || !pending) return;
+    const button = pending.button;
+    const oldText = button ? button.textContent : '';
+    try {
+      if (button) { button.disabled = true; button.textContent = '上传中'; }
+      const id = await uploadActorPhoto(pending.actor, file);
+      const cardImg = pending.card && pending.card.querySelector('img');
+      const portrait = pending.card && pending.card.querySelector('.portrait');
+      const fallback = pending.card && pending.card.querySelector('.fallback');
+      const freshUrl = imageUrl(id) + `&v=${Date.now()}`;
+      if (cardImg) {
+        cardImg.onload = () => { if (fallback) fallback.style.display = 'none'; };
+        cardImg.src = freshUrl;
+      } else if (portrait) {
+        const newImg = document.createElement('img');
+        newImg.loading = 'lazy';
+        newImg.alt = pending.actor.Name ?? pending.actor.name ?? '';
+        newImg.onload = () => { if (fallback) fallback.style.display = 'none'; };
+        newImg.onerror = () => newImg.remove();
+        newImg.src = freshUrl;
+        portrait.appendChild(newImg);
+      }
+      showToast('演员照片已更新');
+    } catch (e) {
+      showToast(e.message || '修改照片失败', true);
+    } finally {
+      if (button) { button.disabled = false; button.textContent = oldText || '换图'; }
+      pendingPhotoActor = null;
+      photoPicker.value = '';
+    }
+  });
+
+  search.addEventListener('input', () => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => {
+      if (currentView !== 'actors') return;
+      actorPage = 1;
+      loadActorPage(1, false);
+    }, 250);
+  });
+
+  (async () => {
+    currentView = 'actors';
+    await loadServerInfo();
+    await loadActorPage(1, false);
+  })();
+})();
+</script>
+</body>
+</html>
