@@ -734,10 +734,14 @@
     grid.appendChild(frag);
   }
 
+  const embyTabName = 'EmbyActorBrowserTarget';
+
   function openActorInEmby(internalId, id) {
     const routeId = internalId || id;
     const serverPart = serverId ? `&serverId=${encodeURIComponent(serverId)}` : '';
-    window.open(`/web/index.html#!/item?id=${encodeURIComponent(routeId)}${serverPart}`, '_blank');
+    // A fixed window name makes the browser reuse the same tab across
+    // clicks instead of opening a new one each time, as long as it's still open.
+    window.open(`/web/index.html#!/item?id=${encodeURIComponent(routeId)}${serverPart}`, embyTabName);
   }
 
   async function showActor(personId, name, imageId) {
