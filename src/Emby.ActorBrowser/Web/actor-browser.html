@@ -313,11 +313,17 @@
         photoPicker.value = '';
         photoPicker.click();
       };
-      c.onclick = () => showActor(internalId, name, id);
+      c.onclick = () => openActorInEmby(internalId, id);
       c.onkeydown = e => { if (e.key === 'Enter') c.click(); };
       frag.appendChild(c);
     });
     grid.appendChild(frag);
+  }
+
+  function openActorInEmby(internalId, id) {
+    const routeId = internalId || id;
+    const serverPart = serverId ? `&serverId=${encodeURIComponent(serverId)}` : '';
+    window.open(`/web/index.html#!/item?id=${encodeURIComponent(routeId)}${serverPart}`, '_blank');
   }
 
   async function showActor(personId, name, imageId) {
