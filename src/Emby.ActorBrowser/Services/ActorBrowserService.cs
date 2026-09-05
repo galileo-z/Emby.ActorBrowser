@@ -4,10 +4,13 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using MediaBrowser.Common.Configuration;
+using MediaBrowser.Common.Extensions;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Library;
 using MediaBrowser.Controller.Net;
 using MediaBrowser.Model.Entities;
+using MediaBrowser.Model.Serialization;
 using MediaBrowser.Model.Services;
 using Emby.ActorBrowser.Models;
 
@@ -35,6 +38,65 @@ namespace Emby.ActorBrowser.Services
         public int? Limit { get; set; }
     }
 
+    [Route("/ActorBrowser/Lists", "GET", Summary = "List the favorites list and all custom actor lists")]
+    public sealed class GetActorLists
+    {
+    }
+
+    [Route("/ActorBrowser/Lists", "POST", Summary = "Create a custom actor list")]
+    public sealed class CreateActorList
+    {
+        public string Name { get; set; }
+    }
+
+    [Route("/ActorBrowser/Lists/{Id}", "POST", Summary = "Rename a custom actor list")]
+    public sealed class RenameActorList
+    {
+        public string Id { get; set; }
+        public string Name { get; set; }
+    }
+
+    [Route("/ActorBrowser/Lists/{Id}", "DELETE", Summary = "Delete a custom actor list")]
+    public sealed class DeleteActorList
+    {
+        public string Id { get; set; }
+    }
+
+    [Route("/ActorBrowser/Lists/{Id}/People", "GET", Summary = "List the actors that belong to a favorites/custom list")]
+    public sealed class GetActorListPeople
+    {
+        public string Id { get; set; }
+        public string Search { get; set; }
+        public int? StartIndex { get; set; }
+        public int? Limit { get; set; }
+    }
+
+    [Route("/ActorBrowser/Lists/{Id}/ActorIds", "GET", Summary = "Get the raw actor id set for a list")]
+    public sealed class GetActorListIds
+    {
+        public string Id { get; set; }
+    }
+
+    [Route("/ActorBrowser/Lists/{Id}/Actors/{ActorId}", "POST", Summary = "Add an actor to a list")]
+    public sealed class AddActorToList
+    {
+        public string Id { get; set; }
+        public long ActorId { get; set; }
+    }
+
+    [Route("/ActorBrowser/Lists/{Id}/Actors/{ActorId}", "DELETE", Summary = "Remove an actor from a list")]
+    public sealed class RemoveActorFromList
+    {
+        public string Id { get; set; }
+        public long ActorId { get; set; }
+    }
+
+    [Route("/ActorBrowser/Actors/{ActorId}/Lists", "GET", Summary = "Get list membership flags for an actor")]
+    public sealed class GetActorListMembership
+    {
+        public long ActorId { get; set; }
+    }
+
     /// <summary>
     /// Exposes a small same-origin HTML app and JSON endpoints.
     /// Emby authentication remains enabled; the page propagates a dedicated api_key to its own requests.
@@ -43,13 +105,19 @@ namespace Emby.ActorBrowser.Services
     {
         private readonly ILibraryManager _libraryManager;
         private readonly IHttpResultFactory _resultFactory;
+        private readonly ActorListStore _listStore;
         private static readonly StringComparer NameComparer =
             StringComparer.Create(CultureInfo.GetCultureInfo("zh-CN"), true);
 
-        public ActorBrowserService(ILibraryManager libraryManager, IHttpResultFactory resultFactory)
+        public ActorBrowserService(
+            ILibraryManager libraryManager,
+            IHttpResultFactory resultFactory,
+            IApplicationPaths appPaths,
+            IJsonSerializer jsonSerializer)
         {
             _libraryManager = libraryManager ?? throw new ArgumentNullException(nameof(libraryManager));
             _resultFactory = resultFactory ?? throw new ArgumentNullException(nameof(resultFactory));
+            _listStore = new ActorListStore(appPaths, jsonSerializer);
         }
 
         public object Get(GetActorBrowserPage request)
@@ -179,6 +247,196 @@ namespace Emby.ActorBrowser.Services
                 StartIndex = startIndex,
                 Limit = limit,
                 Items = items.Skip(startIndex).Take(limit).ToList()
+            };
+        }
+
+        public object Get(GetActorLists request)
+        {
+            var data = _listStore.Read();
+            return data.Lists.Select(ToSummary).ToList();
+        }
+
+        public object Post(CreateActorList request)
+        {
+            var name = (request.Name ?? string.Empty).Trim();
+            if (string.IsNullOrEmpty(name))
+            {
+                throw new ArgumentException("列表名称不能为空");
+            }
+
+            return _listStore.Mutate(data =>
+            {
+                if (data.Lists.Any(x => !x.IsFavorites && string.Equals(x.Name, name, StringComparison.CurrentCultureIgnoreCase)))
+                {
+                    throw new ArgumentException("已存在同名列表");
+                }
+
+                var record = new ActorListRecord { Id = Guid.NewGuid().ToString("N"), Name = name, IsFavorites = false, ActorIds = new List<long>() };
+                data.Lists.Add(record);
+                return ToSummary(record);
+            });
+        }
+
+        public object Post(RenameActorList request)
+        {
+            var name = (request.Name ?? string.Empty).Trim();
+            if (string.IsNullOrEmpty(name))
+            {
+                throw new ArgumentException("列表名称不能为空");
+            }
+
+            return _listStore.Mutate(data =>
+            {
+                var record = ResolveList(data, request.Id);
+                if (record.IsFavorites)
+                {
+                    throw new ArgumentException("收藏列表不能重命名");
+                }
+
+                if (data.Lists.Any(x => x.Id != record.Id && !x.IsFavorites && string.Equals(x.Name, name, StringComparison.CurrentCultureIgnoreCase)))
+                {
+                    throw new ArgumentException("已存在同名列表");
+                }
+
+                record.Name = name;
+                return ToSummary(record);
+            });
+        }
+
+        public void Delete(DeleteActorList request)
+        {
+            _listStore.Mutate(data =>
+            {
+                var record = ResolveList(data, request.Id);
+                if (record.IsFavorites)
+                {
+                    throw new ArgumentException("收藏列表不能删除");
+                }
+
+                data.Lists.Remove(record);
+            });
+        }
+
+        public object Get(GetActorListIds request)
+        {
+            var data = _listStore.Read();
+            var record = ResolveList(data, request.Id);
+            return record.ActorIds.ToList();
+        }
+
+        public object Post(AddActorToList request)
+        {
+            return _listStore.Mutate(data =>
+            {
+                var record = ResolveList(data, request.Id);
+                if (!record.ActorIds.Contains(request.ActorId)) record.ActorIds.Add(request.ActorId);
+                return ToSummary(record);
+            });
+        }
+
+        public object Delete(RemoveActorFromList request)
+        {
+            return _listStore.Mutate(data =>
+            {
+                var record = ResolveList(data, request.Id);
+                record.ActorIds.Remove(request.ActorId);
+                return ToSummary(record);
+            });
+        }
+
+        public object Get(GetActorListMembership request)
+        {
+            var data = _listStore.Read();
+            return data.Lists.Select(x => new ActorListMembershipDto
+            {
+                Id = x.Id,
+                Name = x.Name,
+                IsFavorites = x.IsFavorites,
+                Contains = x.ActorIds.Contains(request.ActorId)
+            }).ToList();
+        }
+
+        public object Get(GetActorListPeople request)
+        {
+            if (_libraryManager == null)
+            {
+                throw new InvalidOperationException("Actor Browser initialization error: ILibraryManager is null.");
+            }
+
+            var data = _listStore.Read();
+            var record = ResolveList(data, request.Id);
+
+            var startIndex = Math.Max(0, request.StartIndex ?? 0);
+            var limit = Clamp(request.Limit ?? 120, 1, 500);
+            var search = (request.Search ?? string.Empty).Trim();
+
+            var actors = record.ActorIds
+                .Select(internalId => _libraryManager.GetItemById(internalId))
+                .Where(x => x != null)
+                .Select(x => new ActorDto
+                {
+                    Id = x.Id.ToString("N"),
+                    InternalId = x.InternalId,
+                    Name = x.Name ?? string.Empty,
+                    SortName = string.IsNullOrWhiteSpace(x.SortName) ? (x.Name ?? string.Empty) : x.SortName,
+                    WorkCount = CountWorks(x.InternalId)
+                });
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                actors = actors.Where(x => Contains(x.Name, search) || Contains(x.SortName, search));
+            }
+
+            var ordered = actors
+                .OrderBy(x => x.SortName, NameComparer)
+                .ThenBy(x => x.Name, NameComparer)
+                .ToList();
+
+            return new PagedResult<ActorDto>
+            {
+                TotalRecordCount = ordered.Count,
+                StartIndex = startIndex,
+                Limit = limit,
+                Items = ordered.Skip(startIndex).Take(limit).ToList()
+            };
+        }
+
+        private int CountWorks(long personInternalId)
+        {
+            var query = new InternalItemsQuery
+            {
+                Recursive = true,
+                PersonIds = new[] { personInternalId },
+                PersonTypes = new[] { PersonType.Actor },
+                IncludeItemTypes = new[] { "Movie", "Series" }
+            };
+
+            return _libraryManager.GetItemsResult(query).Items
+                .Where(x => x != null)
+                .Select(x => x.InternalId)
+                .Distinct()
+                .Count();
+        }
+
+        private static ActorListRecord ResolveList(ActorListStoreData data, string id)
+        {
+            var record = data.Lists.FirstOrDefault(x => x.Id == id);
+            if (record == null)
+            {
+                throw new ResourceNotFoundException("列表不存在");
+            }
+
+            return record;
+        }
+
+        private static ActorListSummaryDto ToSummary(ActorListRecord record)
+        {
+            return new ActorListSummaryDto
+            {
+                Id = record.Id,
+                Name = record.Name,
+                IsFavorites = record.IsFavorites,
+                Count = record.ActorIds?.Count ?? 0
             };
         }
 

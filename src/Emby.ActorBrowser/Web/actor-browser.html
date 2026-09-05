@@ -9,8 +9,33 @@
     * { box-sizing:border-box; }
     body { margin:0; background:var(--bg); color:var(--text); font:14px/1.45 system-ui,-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif; }
     button,input { font:inherit; }
+    .layout { display:flex; align-items:stretch; }
+    .content { flex:1; min-width:0; }
+    .sidebar { width:230px; flex:0 0 230px; background:var(--panel); border-right:1px solid #262626; padding:16px 12px; position:sticky; top:0; align-self:flex-start; height:100vh; overflow-y:auto; overflow-x:hidden; transition:width .16s ease,padding .16s ease,border-color .16s ease; }
+    .sidebar.collapsed { width:0; flex-basis:0; padding:0; border-color:transparent; overflow:hidden; }
+    .sidebarNav { display:flex; flex-direction:column; gap:3px; }
+    .navItem { display:flex; align-items:center; gap:10px; border:0; background:transparent; color:#ddd; text-align:left; padding:9px 10px; border-radius:8px; cursor:pointer; width:100%; white-space:nowrap; overflow:hidden; }
+    .navItem:hover { background:#232323; }
+    .navItem.active { background:var(--accent); color:#fff; }
+    .navIcon { width:18px; flex:0 0 auto; text-align:center; }
+    .navLabel { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; }
+    .navCount { color:var(--muted); font-size:12px; flex:0 0 auto; }
+    .navItem.active .navCount { color:rgba(255,255,255,.85); }
+    .sidebarSection { margin-top:20px; }
+    .sidebarSectionHead { display:flex; align-items:center; justify-content:space-between; padding:0 10px; margin-bottom:6px; color:var(--muted); font-size:12px; }
+    .sidebarAddBtn { border:0; background:#242424; color:#ddd; width:20px; height:20px; border-radius:6px; cursor:pointer; line-height:1; font-size:13px; }
+    .sidebarAddBtn:hover { background:#303030; }
+    .listRow { display:flex; align-items:center; }
+    .listRow .navItem { flex:1; min-width:0; }
+    .listActions { display:flex; gap:1px; flex:0 0 auto; padding-right:2px; opacity:0; transition:opacity .12s ease; }
+    .listRow:hover .listActions,.listRow:focus-within .listActions { opacity:1; }
+    .listActions button { border:0; background:transparent; color:var(--muted); width:22px; height:22px; border-radius:6px; cursor:pointer; font-size:12px; }
+    .listActions button:hover { background:#333; color:#fff; }
+    .sidebarEmpty { color:var(--muted); font-size:12px; padding:6px 10px; }
     .top { position:sticky; top:0; z-index:5; background:rgba(16,16,16,.96); backdrop-filter:blur(8px); border-bottom:1px solid #2a2a2a; }
     .bar { max-width:1500px; margin:auto; padding:16px 22px 12px; display:flex; gap:14px; align-items:center; }
+    .sidebarToggle { border:0; border-radius:8px; width:34px; height:34px; flex:0 0 auto; background:#242424; color:#ddd; cursor:pointer; font-size:15px; }
+    .sidebarToggle:hover { background:#303030; }
     h1 { font-size:22px; margin:0; white-space:nowrap; }
     .search { flex:1; max-width:560px; border:1px solid #404040; border-radius:999px; background:#222; color:#fff; padding:10px 16px; outline:none; }
     .search:focus { border-color:#777; }
@@ -23,10 +48,18 @@
     .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(145px,1fr)); gap:18px 14px; }
     .grid.worksGrid { grid-auto-flow:dense; align-items:start; }
     .card { cursor:pointer; min-width:0; }
+    .favBtn { position:absolute; left:8px; top:8px; z-index:3; border:0; background:rgba(0,0,0,.6); color:#fff; width:28px; height:28px; border-radius:7px; cursor:pointer; font-size:15px; line-height:26px; text-align:center; padding:0; opacity:0; transition:opacity .15s ease,background .15s ease,color .15s ease; }
+    .card:hover .favBtn,.favBtn:focus,.favBtn.active { opacity:1; }
+    .favBtn.active { color:#ffd54a; }
+    .favBtn:hover { background:rgba(0,0,0,.85); }
+    .favBtn:disabled { opacity:.8; cursor:wait; }
     .editPhoto { position:absolute; right:8px; top:8px; z-index:3; border:1px solid rgba(255,255,255,.24); border-radius:7px; padding:6px 9px; background:rgba(0,0,0,.72); color:#fff; font-size:12px; cursor:pointer; opacity:0; transition:opacity .15s ease,background .15s ease; }
     .card:hover .editPhoto,.editPhoto:focus { opacity:1; }
     .editPhoto:hover { background:rgba(0,0,0,.9); }
     .editPhoto:disabled { opacity:.8; cursor:wait; }
+    .listBtn { position:absolute; right:8px; bottom:8px; z-index:3; border:0; background:rgba(0,0,0,.6); color:#fff; width:26px; height:26px; border-radius:7px; cursor:pointer; font-size:14px; line-height:24px; text-align:center; padding:0; opacity:0; transition:opacity .15s ease,background .15s ease; }
+    .card:hover .listBtn,.listBtn:focus { opacity:1; }
+    .listBtn:hover { background:rgba(0,0,0,.85); }
     .portrait,.poster { position:relative; overflow:hidden; border-radius:var(--radius); background:linear-gradient(145deg,#303030,#1d1d1d); box-shadow:0 2px 12px rgba(0,0,0,.22); }
     .portrait { aspect-ratio:2/3; }
     .poster { aspect-ratio:2/3; }
@@ -56,26 +89,63 @@
     .toast { position:fixed; left:50%; bottom:28px; z-index:20; transform:translate(-50%,18px); padding:10px 14px; border-radius:8px; background:#2c2c2c; color:#fff; box-shadow:0 5px 22px rgba(0,0,0,.42); opacity:0; pointer-events:none; transition:opacity .18s ease,transform .18s ease; max-width:min(90vw,620px); }
     .toast.show { opacity:1; transform:translate(-50%,0); }
     .toast.errorToast { background:#7c2929; }
-    @media (hover:none) { .editPhoto { opacity:.86; } }
-    @media (max-width:600px){ .bar{padding:12px 12px 9px}.letters{padding:0 12px 10px}main{padding:14px 12px 30px}.grid{grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:14px 10px}h1{font-size:18px}.home{display:none}.pager button{min-width:34px;height:36px;padding:0 9px} }
+    .listPopover { position:fixed; z-index:30; width:230px; background:#232323; border:1px solid #333; border-radius:10px; box-shadow:0 10px 30px rgba(0,0,0,.5); padding:8px; }
+    .listPopover .popHead { color:var(--muted); font-size:12px; padding:4px 8px 6px; }
+    .listPopoverItem { display:flex; align-items:center; gap:8px; padding:7px 8px; border-radius:7px; cursor:pointer; }
+    .listPopoverItem:hover { background:#2c2c2c; }
+    .listPopoverItem input { margin:0; }
+    .listPopoverItem span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .listPopoverEmpty { color:var(--muted); font-size:12px; padding:6px 8px; }
+    .listPopoverNew { display:flex; gap:6px; padding:8px 4px 2px; border-top:1px solid #2f2f2f; margin-top:4px; }
+    .listPopoverNew input { flex:1; min-width:0; border:1px solid #3d3d3d; border-radius:6px; background:#1c1c1c; color:#fff; padding:6px 8px; }
+    .listPopoverNew button { border:0; border-radius:6px; padding:6px 10px; background:var(--accent); color:#fff; cursor:pointer; white-space:nowrap; }
+    .listPopoverNew button:disabled,.listPopoverNew input:disabled { opacity:.6; cursor:wait; }
+    @media (hover:none) { .editPhoto,.favBtn,.listBtn { opacity:.86; } }
+    @media (max-width:600px){
+      .bar{padding:12px 12px 9px}.letters{padding:0 12px 10px}main{padding:14px 12px 30px}.grid{grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:14px 10px}h1{font-size:18px}.home{display:none}.pager button{min-width:34px;height:36px;padding:0 9px}
+      .sidebar{position:fixed;left:0;top:0;bottom:0;z-index:15;width:78vw;max-width:300px;box-shadow:2px 0 24px rgba(0,0,0,.5)}
+      .sidebar.collapsed{box-shadow:none}
+    }
     @media (max-width:360px){ .workCard.landscape { grid-column:1 / -1; } }
   </style>
 </head>
 <body>
-  <div class="top">
-    <div class="bar">
-      <h1 id="title">演员库</h1>
-      <input id="search" class="search" placeholder="搜索演员…" autocomplete="off">
-      <a class="home" href="/web/index.html#!/home">返回 Emby</a>
+  <div class="layout">
+    <aside id="sidebar" class="sidebar">
+      <nav class="sidebarNav">
+        <button class="navItem active" type="button" id="navAll">
+          <span class="navIcon" aria-hidden="true">🎬</span><span class="navLabel">全部演员</span>
+        </button>
+        <button class="navItem" type="button" id="navFavorites">
+          <span class="navIcon" aria-hidden="true">★</span><span class="navLabel">收藏</span><span class="navCount" id="favCount"></span>
+        </button>
+      </nav>
+      <div class="sidebarSection">
+        <div class="sidebarSectionHead">
+          <span>自建列表</span>
+          <button id="newListBtn" class="sidebarAddBtn" type="button" title="新建列表" aria-label="新建列表">+</button>
+        </div>
+        <nav id="customLists" class="sidebarNav"></nav>
+      </div>
+    </aside>
+    <div class="content">
+      <div class="top">
+        <div class="bar">
+          <button id="sidebarToggle" class="sidebarToggle" type="button" title="收起侧边栏" aria-label="收起侧边栏">☰</button>
+          <h1 id="title">演员库</h1>
+          <input id="search" class="search" placeholder="搜索演员…" autocomplete="off">
+          <a class="home" href="/web/index.html#!/home">返回 Emby</a>
+        </div>
+        <div id="letters" class="letters"></div>
+      </div>
+      <main>
+        <p id="meta" class="meta">正在读取演员…</p>
+        <div id="grid" class="grid"></div>
+        <div id="pager" class="pager" hidden></div>
+        <button id="more" class="more" hidden>加载更多作品</button>
+      </main>
     </div>
-    <div id="letters" class="letters"></div>
   </div>
-  <main>
-    <p id="meta" class="meta">正在读取演员…</p>
-    <div id="grid" class="grid"></div>
-    <div id="pager" class="pager" hidden></div>
-    <button id="more" class="more" hidden>加载更多作品</button>
-  </main>
   <input id="photoPicker" type="file" accept="image/jpeg,image/png,image/webp" hidden>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 <script>
@@ -89,6 +159,7 @@
   const embyBase = location.pathname.toLowerCase().startsWith('/emby/') ? '/emby' : '';
   const pageParams = new URLSearchParams(location.search);
   const apiKey = pageParams.get('api_key') || '';
+  const sidebarCollapsedKey = 'actorBrowser.sidebarCollapsed';
   let serverId = '';
 
   function withApiKey(url) {
@@ -99,8 +170,11 @@
   const el = id => document.getElementById(id);
   const grid = el('grid'), meta = el('meta'), pager = el('pager'), more = el('more'), search = el('search'), letters = el('letters'), title = el('title');
   const photoPicker = el('photoPicker'), toast = el('toast');
+  const sidebar = el('sidebar'), sidebarToggle = el('sidebarToggle'), navAll = el('navAll'), navFavorites = el('navFavorites');
+  const favCount = el('favCount'), customListsNav = el('customLists'), newListBtn = el('newListBtn');
   let actors = [], actorTotal = 0, actorPage = 1, actorRequestSeq = 0, activeLetter = '全部', searchTimer = null, pendingPhotoActor = null, toastTimer = null;
   let currentView = 'actors', currentActor = null, workItems = [], workOffset = 0, workTotal = 0;
+  let currentListId = null, currentListName = '演员库', sidebarLists = [], favoriteIds = new Set(), openPopover = null;
 
   const groups = ['全部',...'ABCDEFGHIJKLMNOPQRSTUVWXYZ','中文/其他'];
   groups.forEach(g => {
@@ -124,6 +198,27 @@
     const r = await fetch(withApiKey(url), {credentials:'same-origin'});
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     return r.json();
+  }
+
+  async function postJson(url, body) {
+    const r = await fetch(withApiKey(url), {
+      method:'POST',
+      credentials:'same-origin',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(body)
+    });
+    if (!r.ok) {
+      let detail = '';
+      try { detail = (await r.text()).trim(); } catch (_) {}
+      throw new Error(`HTTP ${r.status}${detail ? ' · ' + detail : ''}`);
+    }
+    const text = await r.text();
+    return text ? JSON.parse(text) : {};
+  }
+
+  async function sendMethod(url, method) {
+    const r = await fetch(withApiKey(url), {method, credentials:'same-origin'});
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
   }
 
   function showToast(message, isError=false) {
@@ -179,6 +274,312 @@
     }
   }
 
+  // ---- Sidebar: collapse/expand ----
+
+  function setSidebarCollapsed(collapsed) {
+    sidebar.classList.toggle('collapsed', collapsed);
+    const label = collapsed ? '展开侧边栏' : '收起侧边栏';
+    sidebarToggle.title = label;
+    sidebarToggle.setAttribute('aria-label', label);
+    try { localStorage.setItem(sidebarCollapsedKey, collapsed ? '1' : '0'); } catch (_) {}
+  }
+
+  sidebarToggle.onclick = () => setSidebarCollapsed(!sidebar.classList.contains('collapsed'));
+
+  (() => {
+    let collapsed = false;
+    try { collapsed = localStorage.getItem(sidebarCollapsedKey) === '1'; } catch (_) {}
+    setSidebarCollapsed(collapsed);
+  })();
+
+  // ---- Sidebar: favorites & custom lists ----
+
+  async function loadFavoriteIds() {
+    try {
+      const ids = await fetchJson(`${apiBase}/Lists/favorites/ActorIds`);
+      favoriteIds = new Set(ids || []);
+    } catch (_) {
+      favoriteIds = new Set();
+    }
+  }
+
+  async function loadSidebarLists() {
+    try {
+      sidebarLists = await fetchJson(`${apiBase}/Lists`);
+    } catch (_) {
+      sidebarLists = [];
+    }
+    renderSidebarLists();
+  }
+
+  function renderSidebarLists() {
+    const favorites = sidebarLists.find(x => x.IsFavorites ?? x.isFavorites);
+    favCount.textContent = favorites ? String(favorites.Count ?? favorites.count ?? 0) : '';
+
+    customListsNav.innerHTML = '';
+    const customs = sidebarLists.filter(x => !(x.IsFavorites ?? x.isFavorites));
+    if (!customs.length) {
+      const empty = document.createElement('div');
+      empty.className = 'sidebarEmpty';
+      empty.textContent = '暂无自建列表';
+      customListsNav.appendChild(empty);
+    }
+    customs.forEach(l => {
+      const id = l.Id ?? l.id, name = l.Name ?? l.name ?? '', count = l.Count ?? l.count ?? 0;
+      const row = document.createElement('div');
+      row.className = 'listRow';
+
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'navItem';
+      btn.dataset.id = id;
+      btn.innerHTML = `<span class="navIcon" aria-hidden="true">▤</span><span class="navLabel">${esc(name)}</span><span class="navCount">${count}</span>`;
+      btn.onclick = () => selectList(id, name);
+
+      const actions = document.createElement('div');
+      actions.className = 'listActions';
+      const renameBtn = document.createElement('button');
+      renameBtn.type = 'button';
+      renameBtn.textContent = '✎';
+      renameBtn.title = '重命名列表';
+      renameBtn.setAttribute('aria-label', `重命名列表 ${name}`);
+      renameBtn.onclick = e => { e.stopPropagation(); renameList(id, name); };
+      const delBtn = document.createElement('button');
+      delBtn.type = 'button';
+      delBtn.textContent = '✕';
+      delBtn.title = '删除列表';
+      delBtn.setAttribute('aria-label', `删除列表 ${name}`);
+      delBtn.onclick = e => { e.stopPropagation(); deleteList(id, name); };
+      actions.appendChild(renameBtn);
+      actions.appendChild(delBtn);
+
+      row.appendChild(btn);
+      row.appendChild(actions);
+      customListsNav.appendChild(row);
+    });
+
+    updateSidebarActiveState();
+  }
+
+  function updateSidebarActiveState() {
+    navAll.classList.toggle('active', !currentListId);
+    navFavorites.classList.toggle('active', currentListId === 'favorites');
+    customListsNav.querySelectorAll('.navItem').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.id === currentListId);
+    });
+  }
+
+  function refreshSidebarListCounts() {
+    loadSidebarLists();
+  }
+
+  function selectList(id, name) {
+    if (currentListId === id) return;
+    currentListId = id;
+    currentListName = id ? (name || '') : '演员库';
+    actorPage = 1;
+    letters.style.display = id ? 'none' : '';
+    updateSidebarActiveState();
+    loadActorPage(1, true);
+    if (window.matchMedia('(max-width:600px)').matches) setSidebarCollapsed(true);
+  }
+
+  navAll.onclick = () => selectList(null, '演员库');
+  navFavorites.onclick = () => selectList('favorites', '收藏');
+
+  newListBtn.onclick = async () => {
+    const name = (prompt('新建列表名称：') || '').trim();
+    if (!name) return;
+    try {
+      await postJson(`${apiBase}/Lists`, { Name: name });
+      showToast(`已新建列表「${name}」`);
+      await loadSidebarLists();
+    } catch (e) {
+      showToast('新建列表失败：' + e.message, true);
+    }
+  };
+
+  async function renameList(id, oldName) {
+    const name = (prompt('重命名列表：', oldName) || '').trim();
+    if (!name || name === oldName) return;
+    try {
+      await postJson(`${apiBase}/Lists/${encodeURIComponent(id)}`, { Name: name });
+      showToast(`已重命名为「${name}」`);
+      if (currentListId === id) { currentListName = name; title.textContent = name; }
+      await loadSidebarLists();
+    } catch (e) {
+      showToast('重命名失败：' + e.message, true);
+    }
+  }
+
+  async function deleteList(id, name) {
+    if (!confirm(`确定删除列表「${name}」吗？此操作不可撤销。`)) return;
+    try {
+      await sendMethod(`${apiBase}/Lists/${encodeURIComponent(id)}`, 'DELETE');
+      showToast(`已删除列表「${name}」`);
+      if (currentListId === id) selectList(null, '演员库');
+      await loadSidebarLists();
+    } catch (e) {
+      showToast('删除失败：' + e.message, true);
+    }
+  }
+
+  // ---- Favorite toggle on actor cards ----
+
+  async function toggleFavorite(internalId, name, button, card) {
+    const wasFav = favoriteIds.has(internalId);
+    button.disabled = true;
+    try {
+      await sendMethod(`${apiBase}/Lists/favorites/Actors/${encodeURIComponent(internalId)}`, wasFav ? 'DELETE' : 'POST');
+      if (wasFav) {
+        favoriteIds.delete(internalId);
+        button.classList.remove('active');
+        button.textContent = '☆';
+        button.title = '加入收藏';
+        showToast(`已将「${name}」移出收藏`);
+        if (currentListId === 'favorites') removeCardFromCurrentList(card);
+      } else {
+        favoriteIds.add(internalId);
+        button.classList.add('active');
+        button.textContent = '★';
+        button.title = '取消收藏';
+        showToast(`已将「${name}」加入收藏`);
+      }
+      refreshSidebarListCounts();
+    } catch (e) {
+      showToast('操作失败：' + e.message, true);
+    } finally {
+      button.disabled = false;
+    }
+  }
+
+  function removeCardFromCurrentList(card) {
+    card.remove();
+    actorTotal = Math.max(0, actorTotal - 1);
+    renderActorPager();
+    if (!grid.querySelector('.card')) grid.innerHTML = '<div class="empty">该列表暂无演员。</div>';
+  }
+
+  // ---- Add-to-list popover on actor cards ----
+
+  function closeListPopover() {
+    if (!openPopover) return;
+    openPopover.el.remove();
+    document.removeEventListener('mousedown', openPopover.onOutside, true);
+    document.removeEventListener('keydown', openPopover.onKey, true);
+    openPopover = null;
+  }
+
+  function positionPopover(pop, anchor) {
+    const r = anchor.getBoundingClientRect();
+    const width = 230;
+    let left = r.right - width;
+    if (left < 8) left = 8;
+    if (left + width > window.innerWidth - 8) left = Math.max(8, window.innerWidth - 8 - width);
+    pop.style.left = `${left}px`;
+    pop.style.top = `${r.bottom + 6}px`;
+    requestAnimationFrame(() => {
+      const rect = pop.getBoundingClientRect();
+      if (rect.bottom > window.innerHeight - 8) {
+        pop.style.top = `${Math.max(8, r.top - rect.height - 6)}px`;
+      }
+    });
+  }
+
+  async function openListPopover(anchor, actorId, name, card) {
+    if (openPopover && openPopover.actorId === actorId) { closeListPopover(); return; }
+    closeListPopover();
+
+    const pop = document.createElement('div');
+    pop.className = 'listPopover';
+    pop.innerHTML = '<div class="popHead">加入自建列表…</div><div class="popBody"><div class="listPopoverEmpty">读取中…</div></div>';
+    document.body.appendChild(pop);
+    positionPopover(pop, anchor);
+
+    const state = { el: pop, actorId };
+    state.onOutside = e => { if (!pop.contains(e.target) && e.target !== anchor) closeListPopover(); };
+    state.onKey = e => { if (e.key === 'Escape') closeListPopover(); };
+    openPopover = state;
+    setTimeout(() => {
+      document.addEventListener('mousedown', state.onOutside, true);
+      document.addEventListener('keydown', state.onKey, true);
+    }, 0);
+
+    let membership = [];
+    try {
+      membership = await fetchJson(`${apiBase}/Actors/${encodeURIComponent(actorId)}/Lists`);
+    } catch (e) {
+      if (openPopover === state) pop.querySelector('.popBody').innerHTML = '<div class="listPopoverEmpty">读取列表失败</div>';
+      return;
+    }
+    if (openPopover !== state) return;
+    renderPopoverBody(pop, membership, actorId, name, card);
+  }
+
+  function renderPopoverBody(pop, membership, actorId, name, card) {
+    const customs = membership.filter(x => !(x.IsFavorites ?? x.isFavorites));
+    const body = pop.querySelector('.popBody');
+    body.innerHTML = '';
+
+    if (!customs.length) {
+      const empty = document.createElement('div');
+      empty.className = 'listPopoverEmpty';
+      empty.textContent = '还没有自建列表';
+      body.appendChild(empty);
+    }
+
+    customs.forEach(item => {
+      const id = item.Id ?? item.id, listName = item.Name ?? item.name ?? '', contains = item.Contains ?? item.contains ?? false;
+      const row = document.createElement('label');
+      row.className = 'listPopoverItem';
+      row.innerHTML = `<input type="checkbox" ${contains ? 'checked' : ''}><span>${esc(listName)}</span>`;
+      const checkbox = row.querySelector('input');
+      checkbox.onchange = async () => {
+        const willContain = checkbox.checked;
+        checkbox.disabled = true;
+        try {
+          await sendMethod(`${apiBase}/Lists/${encodeURIComponent(id)}/Actors/${encodeURIComponent(actorId)}`, willContain ? 'POST' : 'DELETE');
+          showToast(willContain ? `已将「${name}」加入「${listName}」` : `已将「${name}」移出「${listName}」`);
+          if (!willContain && currentListId === id) removeCardFromCurrentList(card);
+          refreshSidebarListCounts();
+        } catch (e) {
+          checkbox.checked = !willContain;
+          showToast('操作失败：' + e.message, true);
+        } finally {
+          checkbox.disabled = false;
+        }
+      };
+      body.appendChild(row);
+    });
+
+    const newRow = document.createElement('div');
+    newRow.className = 'listPopoverNew';
+    newRow.innerHTML = '<input type="text" placeholder="新建列表名称…" maxlength="60"><button type="button">新建并加入</button>';
+    const input = newRow.querySelector('input'), createBtn = newRow.querySelector('button');
+    const submit = async () => {
+      const listName = input.value.trim();
+      if (!listName) { input.focus(); return; }
+      createBtn.disabled = true;
+      input.disabled = true;
+      try {
+        const created = await postJson(`${apiBase}/Lists`, { Name: listName });
+        const newId = created.Id ?? created.id;
+        await sendMethod(`${apiBase}/Lists/${encodeURIComponent(newId)}/Actors/${encodeURIComponent(actorId)}`, 'POST');
+        showToast(`已新建列表「${listName}」并加入「${name}」`);
+        refreshSidebarListCounts();
+        const refreshed = await fetchJson(`${apiBase}/Actors/${encodeURIComponent(actorId)}/Lists`);
+        if (openPopover && openPopover.el === pop) renderPopoverBody(pop, refreshed, actorId, name, card);
+      } catch (e) {
+        showToast('新建列表失败：' + e.message, true);
+        createBtn.disabled = false;
+        input.disabled = false;
+      }
+    };
+    createBtn.onclick = submit;
+    input.onkeydown = e => { if (e.key === 'Enter') submit(); };
+    body.appendChild(newRow);
+  }
+
   function actorRequestUrl(page) {
     const startIndex = Math.max(0, (page - 1) * actorPageSize);
     const params = new URLSearchParams();
@@ -186,6 +587,9 @@
     params.set('limit', String(actorPageSize));
     const q = search.value.trim();
     if (q) params.set('search', q);
+    if (currentListId) {
+      return `${apiBase}/Lists/${encodeURIComponent(currentListId)}/People?${params.toString()}`;
+    }
     if (activeLetter !== '全部') params.set('group', activeLetter);
     return `${apiBase}/People?${params.toString()}`;
   }
@@ -287,24 +691,32 @@
   }
 
   function renderActors() {
-    title.textContent = '演员库';
+    title.textContent = currentListId ? currentListName : '演员库';
     const totalPages = Math.max(1, Math.ceil(actorTotal / actorPageSize));
     const start = actorTotal ? (actorPage - 1) * actorPageSize + 1 : 0;
     const end = actorTotal ? Math.min(actorPage * actorPageSize, actorTotal) : 0;
     meta.textContent = actorTotal
       ? `共 ${actorTotal} 位演员 · 第 ${actorPage} / ${totalPages} 页 · 当前 ${start}–${end}`
-      : '没有匹配的演员。';
+      : (currentListId ? '该列表暂无演员。' : '没有匹配的演员。');
     grid.classList.remove('worksGrid');
     grid.innerHTML = '';
-    if (!actors.length) { grid.innerHTML = '<div class="empty">没有匹配的演员。</div>'; return; }
+    if (!actors.length) { grid.innerHTML = `<div class="empty">${currentListId ? '该列表暂无演员。' : '没有匹配的演员。'}</div>`; return; }
     const frag = document.createDocumentFragment();
     actors.forEach(a => {
       const id = a.Id ?? a.id, internalId = a.InternalId ?? a.internalId, name = a.Name ?? a.name ?? '', count = a.WorkCount ?? a.workCount ?? 0;
+      const isFav = favoriteIds.has(internalId);
       const c = document.createElement('div'); c.className='card'; c.tabIndex=0;
-      c.innerHTML = `<div class="portrait"><button class="editPhoto" type="button" title="修改演员照片" aria-label="修改 ${esc(name)} 的照片">换图</button><div class="fallback personFallback" aria-hidden="true"></div><img loading="lazy" src="${imageUrl(id)}" alt="${esc(name)}"></div><div class="name">${esc(name)}</div><div class="sub">${count ? `${count} 部作品` : '查看作品'}</div>`;
+      c.innerHTML = `<div class="portrait">`
+        + `<button class="favBtn${isFav ? ' active' : ''}" type="button" title="${isFav ? '取消收藏' : '加入收藏'}" aria-label="${isFav ? '取消收藏' : '加入收藏'} ${esc(name)}">${isFav ? '★' : '☆'}</button>`
+        + `<button class="editPhoto" type="button" title="修改演员照片" aria-label="修改 ${esc(name)} 的照片">换图</button>`
+        + `<button class="listBtn" type="button" title="添加到列表" aria-label="添加 ${esc(name)} 到列表">⋯</button>`
+        + `<div class="fallback personFallback" aria-hidden="true"></div><img loading="lazy" src="${imageUrl(id)}" alt="${esc(name)}"></div>`
+        + `<div class="name">${esc(name)}</div><div class="sub">${count ? `${count} 部作品` : '查看作品'}</div>`;
       const img = c.querySelector('img');
       const fallback = c.querySelector('.fallback');
       const edit = c.querySelector('.editPhoto');
+      const favBtn = c.querySelector('.favBtn');
+      const listBtn = c.querySelector('.listBtn');
       img.onload = () => { if (fallback) fallback.style.display = 'none'; };
       img.onerror = () => img.remove();
       edit.onclick = e => {
@@ -313,6 +725,8 @@
         photoPicker.value = '';
         photoPicker.click();
       };
+      favBtn.onclick = e => { e.preventDefault(); e.stopPropagation(); toggleFavorite(internalId, name, favBtn, c); };
+      listBtn.onclick = e => { e.preventDefault(); e.stopPropagation(); openListPopover(listBtn, internalId, name, c); };
       c.onclick = () => openActorInEmby(internalId, id);
       c.onkeydown = e => { if (e.key === 'Enter') c.click(); };
       frag.appendChild(c);
@@ -476,6 +890,7 @@
   (async () => {
     currentView = 'actors';
     await loadServerInfo();
+    await Promise.all([loadFavoriteIds(), loadSidebarLists()]);
     await loadActorPage(1, false);
   })();
 })();
