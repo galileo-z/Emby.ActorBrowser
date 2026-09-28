@@ -5,7 +5,7 @@
     <Nullable>disable</Nullable>
     <AssemblyName>Emby.ActorBrowser</AssemblyName>
     <RootNamespace>Emby.ActorBrowser</RootNamespace>
-    <Version>0.1.12</Version>
+    <Version>0.1.13</Version>
     <EmbySdkVersion Condition="'$(EmbySdkVersion)' == ''">4.9.1.90</EmbySdkVersion>
   </PropertyGroup>
 

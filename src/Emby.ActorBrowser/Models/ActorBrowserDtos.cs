@@ -21,6 +21,13 @@ namespace Emby.ActorBrowser.Models
         public string Overview { get; set; }
     }
 
+    public sealed class MediaLibraryDto
+    {
+        public long Id { get; set; }
+        public string Name { get; set; }
+        public int Count { get; set; }
+    }
+
     public sealed class PagedResult<T>
     {
         public int TotalRecordCount { get; set; }

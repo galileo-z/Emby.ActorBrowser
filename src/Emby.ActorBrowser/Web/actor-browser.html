@@ -33,20 +33,16 @@
     .listActions button:hover { background:#333; color:#fff; }
     .sidebarEmpty { color:var(--muted); font-size:12px; padding:6px 10px; }
     .top { position:sticky; top:0; z-index:5; background:rgba(16,16,16,.96); backdrop-filter:blur(8px); border-bottom:1px solid #2a2a2a; }
-    .bar { max-width:1500px; margin:auto; padding:16px 22px 12px; display:flex; gap:14px; align-items:center; }
+    .bar { max-width:1500px; margin:auto; padding:16px 22px; display:flex; gap:14px; align-items:center; }
     .sidebarToggle { border:0; border-radius:8px; width:34px; height:34px; flex:0 0 auto; background:#242424; color:#ddd; cursor:pointer; font-size:15px; }
     .sidebarToggle:hover { background:#303030; }
     h1 { font-size:22px; margin:0; white-space:nowrap; }
     .search { flex:1; max-width:560px; border:1px solid #404040; border-radius:999px; background:#222; color:#fff; padding:10px 16px; outline:none; }
     .search:focus { border-color:#777; }
     .home { margin-left:auto; color:#ddd; text-decoration:none; padding:8px 10px; }
-    .letters { max-width:1500px; margin:auto; padding:0 22px 13px; display:flex; flex-wrap:wrap; gap:6px; }
-    .letters button { border:0; background:#252525; color:#ddd; border-radius:7px; min-width:32px; padding:7px 9px; cursor:pointer; }
-    .letters button.active,.letters button:hover { background:var(--accent); color:#fff; }
     main { max-width:1500px; margin:auto; padding:18px 22px 40px; }
     .meta { color:var(--muted); margin:0 0 14px; }
     .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(145px,1fr)); gap:18px 14px; }
-    .grid.worksGrid { grid-auto-flow:dense; align-items:start; }
     .card { cursor:pointer; min-width:0; }
     .favBtn { position:absolute; left:8px; top:8px; z-index:3; border:0; background:rgba(0,0,0,.6); color:#fff; width:28px; height:28px; border-radius:7px; cursor:pointer; font-size:15px; line-height:26px; text-align:center; padding:0; opacity:0; transition:opacity .15s ease,background .15s ease,color .15s ease; }
     .card:hover .favBtn,.favBtn:focus,.favBtn.active { opacity:1; }
@@ -60,14 +56,9 @@
     .listBtn { position:absolute; right:8px; bottom:8px; z-index:3; border:0; background:rgba(0,0,0,.6); color:#fff; width:26px; height:26px; border-radius:7px; cursor:pointer; font-size:14px; line-height:24px; text-align:center; padding:0; opacity:0; transition:opacity .15s ease,background .15s ease; }
     .card:hover .listBtn,.listBtn:focus { opacity:1; }
     .listBtn:hover { background:rgba(0,0,0,.85); }
-    .portrait,.poster { position:relative; overflow:hidden; border-radius:var(--radius); background:linear-gradient(145deg,#303030,#1d1d1d); box-shadow:0 2px 12px rgba(0,0,0,.22); }
-    .portrait { aspect-ratio:2/3; }
-    .poster { aspect-ratio:2/3; }
-    .workCard.landscape { grid-column:span 2; }
-    .workCard.landscape .poster { aspect-ratio:16/9; }
+    .portrait { position:relative; overflow:hidden; border-radius:var(--radius); background:linear-gradient(145deg,#303030,#1d1d1d); box-shadow:0 2px 12px rgba(0,0,0,.22); aspect-ratio:2/3; }
     img { width:100%; height:100%; display:block; }
     .portrait img { object-fit:cover; }
-    .poster img { object-fit:contain; background:#181818; }
     .fallback { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:36px; font-weight:650; color:#aaa; }
     .personFallback::before { content:""; width:42%; aspect-ratio:1/1.18; display:block; opacity:.45; background:radial-gradient(circle at 50% 28%,#aaa 0 20%,transparent 21%),radial-gradient(ellipse at 50% 90%,#aaa 0 42%,transparent 43%); }
     .name { margin-top:8px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
@@ -78,14 +69,7 @@
     .pager button:hover:not(:disabled),.pager button.active { background:var(--accent); color:#fff; }
     .pager button:disabled { opacity:.38; cursor:default; }
     .pager .ellipsis { color:#777; padding:0 2px; }
-    .more { display:block; margin:28px auto 0; border:0; border-radius:8px; padding:10px 22px; background:#2d2d2d; color:#fff; cursor:pointer; }
-    .more[hidden] { display:none !important; }
-    .more:hover { background:#3b3b3b; }
     .empty,.error { padding:28px 4px; color:var(--muted); }
-    .detailHead { display:flex; align-items:center; gap:14px; margin-bottom:18px; }
-    .back { border:0; border-radius:8px; padding:8px 12px; background:#292929; color:#fff; cursor:pointer; }
-    .detailTitle { font-size:24px; margin:0; }
-    .typeTag { display:inline-block; padding:2px 6px; border-radius:4px; background:#292929; color:#bbb; margin-right:5px; }
     .toast { position:fixed; left:50%; bottom:28px; z-index:20; transform:translate(-50%,18px); padding:10px 14px; border-radius:8px; background:#2c2c2c; color:#fff; box-shadow:0 5px 22px rgba(0,0,0,.42); opacity:0; pointer-events:none; transition:opacity .18s ease,transform .18s ease; max-width:min(90vw,620px); }
     .toast.show { opacity:1; transform:translate(-50%,0); }
     .toast.errorToast { background:#7c2929; }
@@ -102,11 +86,10 @@
     .listPopoverNew button:disabled,.listPopoverNew input:disabled { opacity:.6; cursor:wait; }
     @media (hover:none) { .editPhoto,.favBtn,.listBtn { opacity:.86; } }
     @media (max-width:600px){
-      .bar{padding:12px 12px 9px}.letters{padding:0 12px 10px}main{padding:14px 12px 30px}.grid{grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:14px 10px}h1{font-size:18px}.home{display:none}.pager button{min-width:34px;height:36px;padding:0 9px}
+      .bar{padding:12px}main{padding:14px 12px 30px}.grid{grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:14px 10px}h1{font-size:18px}.home{display:none}.pager button{min-width:34px;height:36px;padding:0 9px}
       .sidebar{position:fixed;left:0;top:0;bottom:0;z-index:15;width:78vw;max-width:300px;box-shadow:2px 0 24px rgba(0,0,0,.5)}
       .sidebar.collapsed{box-shadow:none}
     }
-    @media (max-width:360px){ .workCard.landscape { grid-column:1 / -1; } }
   </style>
 </head>
 <body>
@@ -120,6 +103,12 @@
           <span class="navIcon" aria-hidden="true">★</span><span class="navLabel">收藏</span><span class="navCount" id="favCount"></span>
         </button>
       </nav>
+      <div class="sidebarSection">
+        <div class="sidebarSectionHead">
+          <span>媒体库</span>
+        </div>
+        <nav id="libraryNav" class="sidebarNav"></nav>
+      </div>
       <div class="sidebarSection">
         <div class="sidebarSectionHead">
           <span>自建列表</span>
@@ -136,13 +125,11 @@
           <input id="search" class="search" placeholder="搜索演员…" autocomplete="off">
           <a class="home" href="/web/index.html#!/home">返回 Emby</a>
         </div>
-        <div id="letters" class="letters"></div>
       </div>
       <main>
         <p id="meta" class="meta">正在读取演员…</p>
         <div id="grid" class="grid"></div>
         <div id="pager" class="pager" hidden></div>
-        <button id="more" class="more" hidden>加载更多作品</button>
       </main>
     </div>
   </div>
@@ -153,7 +140,6 @@
   'use strict';
   const actorPageSize = 120;
   const maxVisiblePageButtons = 17;
-  const workPageSize = 120;
   const root = location.pathname.replace(/\/ActorBrowser\/?$/i, '');
   const apiBase = root + '/ActorBrowser';
   const embyBase = location.pathname.toLowerCase().startsWith('/emby/') ? '/emby' : '';
@@ -168,30 +154,15 @@
   }
 
   const el = id => document.getElementById(id);
-  const grid = el('grid'), meta = el('meta'), pager = el('pager'), more = el('more'), search = el('search'), letters = el('letters'), title = el('title');
+  const grid = el('grid'), meta = el('meta'), pager = el('pager'), search = el('search'), title = el('title');
   const photoPicker = el('photoPicker'), toast = el('toast');
   const sidebar = el('sidebar'), sidebarToggle = el('sidebarToggle'), navAll = el('navAll'), navFavorites = el('navFavorites');
-  const favCount = el('favCount'), customListsNav = el('customLists'), newListBtn = el('newListBtn');
-  let actors = [], actorTotal = 0, actorPage = 1, actorRequestSeq = 0, activeLetter = '全部', searchTimer = null, pendingPhotoActor = null, toastTimer = null;
-  let currentView = 'actors', currentActor = null, workItems = [], workOffset = 0, workTotal = 0;
-  let currentListId = null, currentListName = '演员库', sidebarLists = [], favoriteIds = new Set(), openPopover = null;
-
-  const groups = ['全部',...'ABCDEFGHIJKLMNOPQRSTUVWXYZ','中文/其他'];
-  groups.forEach(g => {
-    const b = document.createElement('button');
-    b.textContent = g;
-    if (g === activeLetter) b.classList.add('active');
-    b.onclick = () => {
-      activeLetter = g;
-      actorPage = 1;
-      [...letters.children].forEach(x => x.classList.toggle('active', x === b));
-      loadActorPage(1, true);
-    };
-    letters.appendChild(b);
-  });
+  const favCount = el('favCount'), libraryNav = el('libraryNav'), customListsNav = el('customLists'), newListBtn = el('newListBtn');
+  let actors = [], actorTotal = 0, actorPage = 1, actorRequestSeq = 0, searchTimer = null, pendingPhotoActor = null, toastTimer = null;
+  let currentListId = null, currentLibraryId = null, currentViewName = '演员库';
+  let sidebarLists = [], libraries = [], favoriteIds = new Set(), openPopover = null;
 
   function imageUrl(id, width=360) { return withApiKey(`${embyBase}/Items/${encodeURIComponent(id)}/Images/Primary?maxWidth=${width}&quality=90`); }
-  function initials(name) { return (name || '?').trim().slice(0,2).toUpperCase(); }
   function esc(s) { return String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
 
   async function fetchJson(url) {
@@ -292,6 +263,49 @@
     setSidebarCollapsed(collapsed);
   })();
 
+  // ---- Sidebar: media libraries ----
+
+  async function loadLibraries() {
+    try {
+      libraries = await fetchJson(`${apiBase}/Libraries`);
+    } catch (_) {
+      libraries = [];
+    }
+    renderLibraries();
+  }
+
+  function renderLibraries() {
+    libraryNav.innerHTML = '';
+    if (!libraries.length) {
+      const empty = document.createElement('div');
+      empty.className = 'sidebarEmpty';
+      empty.textContent = '没有找到媒体库';
+      libraryNav.appendChild(empty);
+    }
+    libraries.forEach(l => {
+      const id = l.Id ?? l.id, name = l.Name ?? l.name ?? '', count = l.Count ?? l.count ?? 0;
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'navItem';
+      btn.dataset.id = String(id);
+      btn.innerHTML = `<span class="navIcon" aria-hidden="true">📁</span><span class="navLabel">${esc(name)}</span><span class="navCount">${count}</span>`;
+      btn.onclick = () => selectLibrary(id, name);
+      libraryNav.appendChild(btn);
+    });
+    updateSidebarActiveState();
+  }
+
+  function selectLibrary(id, name) {
+    if (currentLibraryId === id) return;
+    currentLibraryId = id;
+    currentListId = null;
+    currentViewName = name || '演员库';
+    actorPage = 1;
+    updateSidebarActiveState();
+    loadActorPage(1, true);
+    if (window.matchMedia('(max-width:600px)').matches) setSidebarCollapsed(true);
+  }
+
   // ---- Sidebar: favorites & custom lists ----
 
   async function loadFavoriteIds() {
@@ -362,8 +376,11 @@
   }
 
   function updateSidebarActiveState() {
-    navAll.classList.toggle('active', !currentListId);
+    navAll.classList.toggle('active', !currentListId && !currentLibraryId);
     navFavorites.classList.toggle('active', currentListId === 'favorites');
+    libraryNav.querySelectorAll('.navItem').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.id === String(currentLibraryId));
+    });
     customListsNav.querySelectorAll('.navItem').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.id === currentListId);
     });
@@ -376,15 +393,23 @@
   function selectList(id, name) {
     if (currentListId === id) return;
     currentListId = id;
-    currentListName = id ? (name || '') : '演员库';
+    currentLibraryId = null;
+    currentViewName = id ? (name || '') : '演员库';
     actorPage = 1;
-    letters.style.display = id ? 'none' : '';
     updateSidebarActiveState();
     loadActorPage(1, true);
     if (window.matchMedia('(max-width:600px)').matches) setSidebarCollapsed(true);
   }
 
-  navAll.onclick = () => selectList(null, '演员库');
+  navAll.onclick = () => {
+    currentListId = null;
+    currentLibraryId = null;
+    currentViewName = '演员库';
+    actorPage = 1;
+    updateSidebarActiveState();
+    loadActorPage(1, true);
+    if (window.matchMedia('(max-width:600px)').matches) setSidebarCollapsed(true);
+  };
   navFavorites.onclick = () => selectList('favorites', '收藏');
 
   newListBtn.onclick = async () => {
@@ -405,7 +430,7 @@
     try {
       await postJson(`${apiBase}/Lists/${encodeURIComponent(id)}`, { Name: name });
       showToast(`已重命名为「${name}」`);
-      if (currentListId === id) { currentListName = name; title.textContent = name; }
+      if (currentListId === id) { currentViewName = name; title.textContent = name; }
       await loadSidebarLists();
     } catch (e) {
       showToast('重命名失败：' + e.message, true);
@@ -590,20 +615,18 @@
     if (currentListId) {
       return `${apiBase}/Lists/${encodeURIComponent(currentListId)}/People?${params.toString()}`;
     }
-    if (activeLetter !== '全部') params.set('group', activeLetter);
+    if (currentLibraryId) params.set('libraryId', String(currentLibraryId));
     return `${apiBase}/People?${params.toString()}`;
   }
 
   async function loadActorPage(page, scrollToTop=false) {
-    if (currentView !== 'actors') return;
     const requestSeq = ++actorRequestSeq;
     const targetPage = Math.max(1, Number(page) || 1);
-    more.hidden = true;
     pager.hidden = true;
     meta.textContent = `正在读取第 ${targetPage} 页演员…`;
     try {
       const r = await fetchJson(actorRequestUrl(targetPage));
-      if (requestSeq !== actorRequestSeq || currentView !== 'actors') return;
+      if (requestSeq !== actorRequestSeq) return;
       actors = r.Items || r.items || [];
       actorTotal = r.TotalRecordCount ?? r.totalRecordCount ?? actors.length;
       const totalPages = Math.max(1, Math.ceil(actorTotal / actorPageSize));
@@ -639,7 +662,6 @@
   }
 
   function renderActorPager() {
-    if (currentView !== 'actors') { pager.hidden = true; return; }
     const totalPages = Math.max(1, Math.ceil(actorTotal / actorPageSize));
     pager.innerHTML = '';
     if (actorTotal <= actorPageSize) { pager.hidden = true; return; }
@@ -682,25 +704,17 @@
     pager.appendChild(makePagerButton('下一页', actorPage + 1, actorPage >= totalPages, false, '下一页'));
   }
 
-  function showMoreForWorks() {
-    if (currentView !== 'works') return;
-    pager.hidden = true;
-    more.textContent = '加载更多作品';
-    more.onclick = loadMoreWorks;
-    more.hidden = workOffset >= workTotal;
-  }
-
   function renderActors() {
-    title.textContent = currentListId ? currentListName : '演员库';
+    const filtered = !!(currentListId || currentLibraryId);
+    title.textContent = filtered ? currentViewName : '演员库';
     const totalPages = Math.max(1, Math.ceil(actorTotal / actorPageSize));
     const start = actorTotal ? (actorPage - 1) * actorPageSize + 1 : 0;
     const end = actorTotal ? Math.min(actorPage * actorPageSize, actorTotal) : 0;
     meta.textContent = actorTotal
       ? `共 ${actorTotal} 位演员 · 第 ${actorPage} / ${totalPages} 页 · 当前 ${start}–${end}`
-      : (currentListId ? '该列表暂无演员。' : '没有匹配的演员。');
-    grid.classList.remove('worksGrid');
+      : '没有匹配的演员。';
     grid.innerHTML = '';
-    if (!actors.length) { grid.innerHTML = `<div class="empty">${currentListId ? '该列表暂无演员。' : '没有匹配的演员。'}</div>`; return; }
+    if (!actors.length) { grid.innerHTML = '<div class="empty">没有匹配的演员。</div>'; return; }
     const frag = document.createDocumentFragment();
     actors.forEach(a => {
       const id = a.Id ?? a.id, internalId = a.InternalId ?? a.internalId, name = a.Name ?? a.name ?? '', count = a.WorkCount ?? a.workCount ?? 0;
@@ -744,107 +758,10 @@
     window.open(`/web/index.html#!/item?id=${encodeURIComponent(routeId)}${serverPart}`, embyTabName);
   }
 
-  async function showActor(personId, name, imageId) {
-    search.blur();
-    currentView = 'works';
-    currentActor = { personId, name, imageId };
-    workItems = [];
-    workOffset = 0;
-    workTotal = 0;
-    title.textContent = name;
-    search.style.display='none';
-    letters.style.display='none';
-    pager.hidden=true;
-    more.hidden=true;
-    more.onclick=null;
-    meta.innerHTML = `<div class="detailHead"><button id="back" class="back">← 演员列表</button><div><h2 class="detailTitle">${esc(name)}</h2><div class="sub">正在读取出演作品…</div></div></div>`;
-    grid.classList.add('worksGrid');
-    grid.innerHTML = '';
-    el('back').onclick = () => {
-      currentView = 'actors';
-      currentActor = null;
-      workItems = [];
-      workOffset = 0;
-      workTotal = 0;
-      search.style.display='';
-      letters.style.display='';
-      more.hidden=true;
-      more.onclick=null;
-      renderActors();
-      renderActorPager();
-    };
-    try {
-      const r = await fetchJson(`${apiBase}/Items?personId=${encodeURIComponent(personId)}&startIndex=0&limit=${workPageSize}`);
-      workItems = r.Items || r.items || [];
-      workOffset = workItems.length;
-      workTotal = r.TotalRecordCount ?? r.totalRecordCount ?? workOffset;
-      meta.querySelector('.sub').textContent = `${workTotal} 部电影 / 剧集`;
-      renderWorks(workItems);
-      showMoreForWorks();
-    } catch (e) {
-      grid.innerHTML = `<div class="error">读取出演作品失败：${esc(e.message)}</div>`;
-      more.hidden = true;
-    }
-  }
-
-  async function loadMoreWorks() {
-    if (currentView !== 'works' || !currentActor) return;
-    try {
-      more.disabled = true;
-      const r = await fetchJson(`${apiBase}/Items?personId=${encodeURIComponent(currentActor.personId)}&startIndex=${workOffset}&limit=${workPageSize}`);
-      const rows = r.Items || r.items || [];
-      workItems.push(...rows);
-      workOffset += rows.length;
-      workTotal = r.TotalRecordCount ?? r.totalRecordCount ?? workTotal;
-      if (!rows.length) workOffset = workTotal;
-      const sub = meta.querySelector('.sub');
-      if (sub) sub.textContent = `${workTotal} 部电影 / 剧集`;
-      renderWorks(workItems);
-      showMoreForWorks();
-    } catch (e) {
-      const sub = meta.querySelector('.sub');
-      if (sub) sub.textContent = `继续加载作品失败：${e.message}`;
-    } finally {
-      more.disabled = false;
-    }
-  }
-
-  function renderWorks(items) {
-    grid.classList.add('worksGrid');
-    grid.innerHTML='';
-    if (!items.length) { grid.innerHTML='<div class="empty">没有找到电影或剧集。</div>'; return; }
-    const frag=document.createDocumentFragment();
-    items.forEach(i => {
-      const id=i.Id ?? i.id, internalId=i.InternalId ?? i.internalId ?? '', name=i.Name ?? i.name ?? '', type=i.Type ?? i.type ?? '', year=i.ProductionYear ?? i.productionYear ?? '';
-      const c=document.createElement('div'); c.className='card workCard';
-      c.innerHTML=`<div class="poster"><div class="fallback">${esc(initials(name))}</div><img loading="lazy" src="${imageUrl(id, 720)}" alt="${esc(name)}"></div><div class="name">${esc(name)}</div><div class="sub"><span class="typeTag">${esc(type === 'Series' ? '剧集' : type === 'Movie' ? '电影' : type)}</span>${esc(year)}</div>`;
-      const img=c.querySelector('img');
-      const fallback=c.querySelector('.fallback');
-      img.onload=()=>{
-        if(fallback) fallback.style.display='none';
-        const w=img.naturalWidth || 0, h=img.naturalHeight || 0;
-        if(w > h * 1.15) {
-          c.classList.add('landscape');
-          const poster=c.querySelector('.poster');
-          if(poster && w && h) poster.style.aspectRatio=`${w} / ${h}`;
-        }
-      };
-      img.onerror=()=>img.remove();
-      c.onclick=()=>{
-        const routeId = internalId || id;
-        const serverPart = serverId ? `&serverId=${encodeURIComponent(serverId)}` : '';
-        location.href = `/web/index.html#!/item?id=${encodeURIComponent(routeId)}${serverPart}`;
-      };
-      frag.appendChild(c);
-    });
-    grid.appendChild(frag);
-  }
-
   function showError(message) {
     meta.textContent='';
     grid.innerHTML=`<div class="error">${esc(message)}</div>`;
     pager.hidden=true;
-    more.hidden=true;
   }
 
   photoPicker.addEventListener('change', async () => {
@@ -885,16 +802,14 @@
   search.addEventListener('input', () => {
     clearTimeout(searchTimer);
     searchTimer = setTimeout(() => {
-      if (currentView !== 'actors') return;
       actorPage = 1;
       loadActorPage(1, false);
     }, 250);
   });
 
   (async () => {
-    currentView = 'actors';
     await loadServerInfo();
-    await Promise.all([loadFavoriteIds(), loadSidebarLists()]);
+    await Promise.all([loadFavoriteIds(), loadSidebarLists(), loadLibraries()]);
     await loadActorPage(1, false);
   })();
 })();

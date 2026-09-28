@@ -25,9 +25,14 @@ namespace Emby.ActorBrowser.Services
     public sealed class GetActorBrowserPeople
     {
         public string Search { get; set; }
-        public string Group { get; set; }
+        public long? LibraryId { get; set; }
         public int? StartIndex { get; set; }
         public int? Limit { get; set; }
+    }
+
+    [Route("/ActorBrowser/Libraries", "GET", Summary = "List the server's media libraries with actor counts")]
+    public sealed class GetActorBrowserLibraries
+    {
     }
 
     [Route("/ActorBrowser/Items", "GET", Summary = "List movies and series for an actor")]
@@ -157,6 +162,13 @@ namespace Emby.ActorBrowser.Services
                 PersonTypes = new[] { PersonType.Actor }
             };
 
+            if (request.LibraryId.HasValue && request.LibraryId.Value > 0)
+            {
+                // GetPeople ignores TopParentIds; ParentIds combined with Recursive is what
+                // actually scopes it to a library, matching Emby's own /Persons?ParentId= behavior.
+                query.ParentIds = new[] { request.LibraryId.Value };
+            }
+
             var people = _libraryManager.GetPeople(query).Items
                 .Where(x => x != null && x.Item1 != null)
                 .Select(x => new ActorDto
@@ -173,12 +185,6 @@ namespace Emby.ActorBrowser.Services
                 people = people.Where(x =>
                     Contains(x.Name, search) ||
                     Contains(x.SortName, search));
-            }
-
-            var group = (request.Group ?? string.Empty).Trim();
-            if (!string.IsNullOrWhiteSpace(group) && !string.Equals(group, "全部", StringComparison.OrdinalIgnoreCase))
-            {
-                people = people.Where(x => MatchesGroup(x.SortName, x.Name, group));
             }
 
             var ordered = people
@@ -248,6 +254,46 @@ namespace Emby.ActorBrowser.Services
                 Limit = limit,
                 Items = items.Skip(startIndex).Take(limit).ToList()
             };
+        }
+
+        public object Get(GetActorBrowserLibraries request)
+        {
+            if (_libraryManager == null)
+            {
+                throw new InvalidOperationException("Actor Browser initialization error: ILibraryManager is null.");
+            }
+
+            var folders = _libraryManager.GetVirtualFolders() ?? new List<VirtualFolderInfo>();
+
+            return folders
+                .Where(x => x != null
+                    && !string.Equals(x.CollectionType, "boxsets", StringComparison.OrdinalIgnoreCase)
+                    && !string.Equals(x.CollectionType, "playlists", StringComparison.OrdinalIgnoreCase)
+                    && long.TryParse(x.ItemId, NumberStyles.Integer, CultureInfo.InvariantCulture, out _))
+                .Select(x =>
+                {
+                    long.TryParse(x.ItemId, NumberStyles.Integer, CultureInfo.InvariantCulture, out var internalId);
+                    return new MediaLibraryDto
+                    {
+                        Id = internalId,
+                        Name = x.Name ?? string.Empty,
+                        Count = CountPeopleInLibrary(internalId)
+                    };
+                })
+                .OrderBy(x => x.Name, NameComparer)
+                .ToList();
+        }
+
+        private int CountPeopleInLibrary(long libraryInternalId)
+        {
+            var query = new InternalItemsQuery
+            {
+                Recursive = true,
+                PersonTypes = new[] { PersonType.Actor },
+                ParentIds = new[] { libraryInternalId }
+            };
+
+            return _libraryManager.GetPeople(query).TotalRecordCount;
         }
 
         public object Get(GetActorLists request)
@@ -444,25 +490,6 @@ namespace Emby.ActorBrowser.Services
         {
             return !string.IsNullOrEmpty(value) &&
                    value.IndexOf(search, StringComparison.CurrentCultureIgnoreCase) >= 0;
-        }
-
-        private static bool MatchesGroup(string sortName, string name, string group)
-        {
-            var value = string.IsNullOrWhiteSpace(sortName) ? (name ?? string.Empty) : sortName;
-            value = value.Trim();
-            var isLatin = value.Length > 0 && ((value[0] >= 'A' && value[0] <= 'Z') || (value[0] >= 'a' && value[0] <= 'z'));
-
-            if (string.Equals(group, "中文/其他", StringComparison.OrdinalIgnoreCase))
-            {
-                return !isLatin;
-            }
-
-            if (group.Length == 1 && group[0] >= 'A' && group[0] <= 'Z')
-            {
-                return isLatin && char.ToUpperInvariant(value[0]) == group[0];
-            }
-
-            return true;
         }
 
         private static int Clamp(int value, int min, int max)
