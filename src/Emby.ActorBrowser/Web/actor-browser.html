@@ -84,6 +84,34 @@
     .listPopoverNew input { flex:1; min-width:0; border:1px solid #3d3d3d; border-radius:6px; background:#1c1c1c; color:#fff; padding:6px 8px; }
     .listPopoverNew button { border:0; border-radius:6px; padding:6px 10px; background:var(--accent); color:#fff; cursor:pointer; white-space:nowrap; }
     .listPopoverNew button:disabled,.listPopoverNew input:disabled { opacity:.6; cursor:wait; }
+    .castBtn { border:0; border-radius:999px; padding:8px 14px; background:#242424; color:#ddd; cursor:pointer; white-space:nowrap; }
+    .castBtn:hover { background:#303030; }
+    .castOverlay { position:fixed; inset:0; z-index:40; background:rgba(0,0,0,.62); display:flex; align-items:center; justify-content:center; padding:20px; }
+    .castOverlay[hidden] { display:none; }
+    .castDialog { width:min(920px,100%); height:min(640px,100%); background:var(--panel); border:1px solid #333; border-radius:12px; box-shadow:0 14px 48px rgba(0,0,0,.6); display:flex; flex-direction:column; overflow:hidden; }
+    .castHead { display:flex; align-items:center; justify-content:space-between; padding:14px 18px; border-bottom:1px solid #2a2a2a; font-size:16px; font-weight:600; }
+    .castClose { border:0; background:transparent; color:#aaa; font-size:18px; cursor:pointer; width:30px; height:30px; border-radius:6px; }
+    .castClose:hover { background:#303030; color:#fff; }
+    .castBody { flex:1; min-height:0; display:flex; }
+    .castCol { flex:1; min-width:0; display:flex; flex-direction:column; padding:14px; gap:10px; }
+    .castCol + .castCol { border-left:1px solid #2a2a2a; }
+    .castColTitle { color:var(--muted); font-size:12px; }
+    .castInput { border:1px solid #404040; border-radius:8px; background:#222; color:#fff; padding:8px 12px; outline:none; width:100%; }
+    .castInput:focus { border-color:#777; }
+    .castList { flex:1; min-height:0; overflow-y:auto; display:flex; flex-direction:column; gap:4px; }
+    .castRow { display:flex; align-items:center; gap:10px; padding:7px 9px; border-radius:8px; background:#202020; border:1px solid transparent; }
+    .castRow.clickable { cursor:pointer; }
+    .castRow.clickable:hover { background:#2a2a2a; }
+    .castRow.selected { border-color:var(--accent); }
+    .castAvatar { width:34px; height:34px; border-radius:50%; background:#333; object-fit:cover; flex:0 0 auto; overflow:hidden; }
+    .castText { flex:1; min-width:0; }
+    .castText .n { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .castText .s { color:var(--muted); font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .castAct { border:0; border-radius:6px; padding:5px 10px; background:var(--accent); color:#fff; cursor:pointer; flex:0 0 auto; }
+    .castAct.danger { background:#6b2a2a; }
+    .castAct:disabled { opacity:.5; cursor:wait; }
+    .castHint { color:var(--muted); font-size:12px; padding:6px 2px; }
+    @media (max-width:700px) { .castBody { flex-direction:column; overflow-y:auto; } .castCol + .castCol { border-left:0; border-top:1px solid #2a2a2a; } .castList { min-height:180px; flex:none; } .castBtn { padding:8px 10px; } }
     @media (hover:none) { .editPhoto,.favBtn,.listBtn { opacity:.86; } }
     @media (max-width:600px){
       .bar{padding:12px}main{padding:14px 12px 30px}.grid{grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:14px 10px}h1{font-size:18px}.home{display:none}.pager button{min-width:34px;height:36px;padding:0 9px}
@@ -123,6 +151,7 @@
           <button id="sidebarToggle" class="sidebarToggle" type="button" title="收起侧边栏" aria-label="收起侧边栏">☰</button>
           <h1 id="title">演员库</h1>
           <input id="search" class="search" placeholder="搜索演员…" autocomplete="off">
+          <button id="castBtn" class="castBtn" type="button" title="按片名搜索电影，并为其添加演员">电影选演员</button>
           <a class="home" href="/web/index.html#!/home">返回 Emby</a>
         </div>
       </div>
@@ -131,6 +160,26 @@
         <div id="grid" class="grid"></div>
         <div id="pager" class="pager" hidden></div>
       </main>
+    </div>
+  </div>
+  <div id="castOverlay" class="castOverlay" hidden>
+    <div class="castDialog" role="dialog" aria-modal="true" aria-label="为电影添加演员">
+      <div class="castHead"><span>为电影添加演员</span><button id="castClose" class="castClose" type="button" aria-label="关闭">✕</button></div>
+      <div class="castBody">
+        <div class="castCol">
+          <div class="castColTitle">1. 按片名搜索电影 / 剧集</div>
+          <input id="castMovieSearch" class="castInput" placeholder="输入片名…" autocomplete="off">
+          <div id="castMovieList" class="castList"><div class="castHint">输入片名开始搜索。</div></div>
+        </div>
+        <div class="castCol">
+          <div id="castCastTitle" class="castColTitle">2. 当前演员</div>
+          <div id="castCurrent" class="castList" style="flex:0 0 38%"><div class="castHint">请先在左侧选择一部电影。</div></div>
+          <div class="castColTitle">3. 选择现有演员，或输入姓名新建</div>
+          <input id="castActorSearch" class="castInput" placeholder="搜索演员；搜不到可输入姓名新建…" autocomplete="off" disabled>
+          <input id="castRole" class="castInput" placeholder="饰演角色（可选，添加时使用）" autocomplete="off" maxlength="80" disabled>
+          <div id="castActorList" class="castList"></div>
+        </div>
+      </div>
     </div>
   </div>
   <input id="photoPicker" type="file" accept="image/jpeg,image/png,image/webp" hidden>
@@ -798,6 +847,176 @@
       photoPicker.value = '';
     }
   });
+
+  // ---- Movie cast editor: search a movie by title, then attach existing actors ----
+
+  const castOverlay = el('castOverlay'), castMovieSearch = el('castMovieSearch'), castMovieList = el('castMovieList');
+  const castCurrent = el('castCurrent'), castCastTitle = el('castCastTitle'), castActorSearch = el('castActorSearch');
+  const castRole = el('castRole'), castActorList = el('castActorList');
+  let castMovie = null, castMembers = [], castMovieTimer = null, castActorTimer = null, castMovieSeq = 0, castActorSeq = 0;
+
+  async function sendJson(url, method) {
+    const r = await fetch(withApiKey(url), {method, credentials:'same-origin'});
+    if (!r.ok) {
+      if (r.status === 401 || r.status === 403) throw new Error('需要管理员权限');
+      let detail = '';
+      try { detail = (await r.text()).trim(); } catch (_) {}
+      throw new Error(`HTTP ${r.status}${detail ? ' · ' + detail : ''}`);
+    }
+    const text = await r.text();
+    return text ? JSON.parse(text) : null;
+  }
+
+  function openCastDialog() {
+    castOverlay.hidden = false;
+    castMovieSearch.focus();
+  }
+
+  function closeCastDialog() {
+    castOverlay.hidden = true;
+    // The cast may have changed, so refresh the actor view behind the dialog.
+    if (castMovie) loadActorPage(actorPage, false);
+  }
+
+  function castRowHtml(avatarSrc, name, sub) {
+    return `${avatarSrc ? `<img class="castAvatar" loading="lazy" src="${avatarSrc}" alt="">` : '<div class="castAvatar"></div>'}`
+      + `<div class="castText"><div class="n">${esc(name)}</div><div class="s">${esc(sub)}</div></div>`;
+  }
+
+  async function searchCastMovies() {
+    const q = castMovieSearch.value.trim();
+    const seq = ++castMovieSeq;
+    if (!q) { castMovieList.innerHTML = '<div class="castHint">输入片名开始搜索。</div>'; return; }
+    castMovieList.innerHTML = '<div class="castHint">搜索中…</div>';
+    try {
+      const items = await fetchJson(`${apiBase}/Movies?search=${encodeURIComponent(q)}&limit=40`);
+      if (seq !== castMovieSeq) return;
+      castMovieList.innerHTML = '';
+      if (!items.length) { castMovieList.innerHTML = '<div class="castHint">没有找到匹配的电影。</div>'; return; }
+      items.forEach(m => {
+        const id = m.Id ?? m.id, internalId = m.InternalId ?? m.internalId, name = m.Name ?? m.name ?? '';
+        const year = m.ProductionYear ?? m.productionYear, type = m.Type ?? m.type;
+        const row = document.createElement('div');
+        row.className = 'castRow clickable' + (castMovie && castMovie.internalId === internalId ? ' selected' : '');
+        row.innerHTML = castRowHtml(imageUrl(id, 80), name, `${year || '未知年份'} · ${type === 'Series' ? '剧集' : '电影'}`);
+        row.querySelector('img').onerror = e => e.target.remove();
+        row.onclick = () => {
+          castMovieList.querySelectorAll('.castRow').forEach(r => r.classList.remove('selected'));
+          row.classList.add('selected');
+          selectCastMovie({ internalId, name });
+        };
+        castMovieList.appendChild(row);
+      });
+    } catch (e) {
+      if (seq === castMovieSeq) castMovieList.innerHTML = `<div class="error">搜索失败：${esc(e.message)}</div>`;
+    }
+  }
+
+  async function selectCastMovie(movie) {
+    castMovie = movie;
+    castCastTitle.textContent = `2. 「${movie.name}」当前演员`;
+    castActorSearch.disabled = false;
+    castRole.disabled = false;
+    castCurrent.innerHTML = '<div class="castHint">读取中…</div>';
+    try {
+      castMembers = await fetchJson(`${apiBase}/Movies/${encodeURIComponent(movie.internalId)}/Cast`);
+    } catch (e) {
+      castMembers = [];
+      castCurrent.innerHTML = `<div class="error">读取失败：${esc(e.message)}</div>`;
+      return;
+    }
+    renderCastCurrent();
+    searchCastActors();
+  }
+
+  function renderCastCurrent() {
+    castCurrent.innerHTML = '';
+    if (!castMembers.length) { castCurrent.innerHTML = '<div class="castHint">该影片还没有演员。</div>'; return; }
+    castMembers.forEach(c => {
+      const id = c.Id ?? c.id, name = c.Name ?? c.name ?? '', role = c.Role ?? c.role ?? '';
+      const row = document.createElement('div');
+      row.className = 'castRow';
+      row.innerHTML = castRowHtml(id ? imageUrl(id, 80) : '', name, role ? `饰 ${role}` : '') + '<button class="castAct danger" type="button">移除</button>';
+      const img = row.querySelector('img'); if (img) img.onerror = () => img.remove();
+      const btn = row.querySelector('button');
+      btn.onclick = async () => {
+        btn.disabled = true;
+        try {
+          castMembers = await sendJson(`${apiBase}/Movies/${encodeURIComponent(castMovie.internalId)}/Cast?name=${encodeURIComponent(name)}`, 'DELETE');
+          showToast(`已从「${castMovie.name}」移除「${name}」`);
+          renderCastCurrent();
+          searchCastActors();
+        } catch (e) {
+          btn.disabled = false;
+          showToast('移除失败：' + e.message, true);
+        }
+      };
+      castCurrent.appendChild(row);
+    });
+  }
+
+  async function addCastMember(name, btn, row) {
+    btn.disabled = true;
+    try {
+      const role = castRole.value.trim();
+      const url = `${apiBase}/Movies/${encodeURIComponent(castMovie.internalId)}/Cast?name=${encodeURIComponent(name)}` + (role ? `&role=${encodeURIComponent(role)}` : '');
+      castMembers = await sendJson(url, 'POST');
+      showToast(`已为「${castMovie.name}」添加「${name}」`);
+      castRole.value = '';
+      renderCastCurrent();
+      searchCastActors();
+    } catch (e) {
+      btn.disabled = false;
+      showToast('添加失败：' + e.message, true);
+    }
+  }
+
+  async function searchCastActors() {
+    if (!castMovie) return;
+    const seq = ++castActorSeq;
+    const q = castActorSearch.value.trim();
+    castActorList.innerHTML = '<div class="castHint">搜索中…</div>';
+    try {
+      const params = new URLSearchParams({ limit: '40' });
+      if (q) params.set('search', q);
+      const r = await fetchJson(`${apiBase}/People?${params.toString()}`);
+      if (seq !== castActorSeq) return;
+      const attached = new Set(castMembers.map(c => (c.Name ?? c.name ?? '').toLowerCase()));
+      const all = r.Items || r.items || [];
+      const items = all.filter(a => !attached.has((a.Name ?? a.name ?? '').toLowerCase()));
+      castActorList.innerHTML = '';
+
+      // Offer to create the actor when the typed name isn't an existing or already-attached actor.
+      const lower = q.toLowerCase();
+      if (q && !attached.has(lower) && !all.some(a => (a.Name ?? a.name ?? '').toLowerCase() === lower)) {
+        const row = document.createElement('div');
+        row.className = 'castRow';
+        row.innerHTML = castRowHtml('', `新建演员「${q}」`, '库里没有这位演员，将新建并添加') + '<button class="castAct" type="button">新建并添加</button>';
+        row.querySelector('button').onclick = e => addCastMember(q, e.target, row);
+        castActorList.appendChild(row);
+      }
+
+      if (!items.length && !castActorList.children.length) { castActorList.innerHTML = '<div class="castHint">没有可添加的演员。可输入完整姓名后新建。</div>'; return; }
+      items.forEach(a => {
+        const id = a.Id ?? a.id, name = a.Name ?? a.name ?? '', count = a.WorkCount ?? a.workCount ?? 0;
+        const row = document.createElement('div');
+        row.className = 'castRow';
+        row.innerHTML = castRowHtml(imageUrl(id, 80), name, count ? `${count} 部作品` : '') + '<button class="castAct" type="button">添加</button>';
+        row.querySelector('img').onerror = e => e.target.remove();
+        row.querySelector('button').onclick = e => addCastMember(name, e.target, row);
+        castActorList.appendChild(row);
+      });
+    } catch (e) {
+      if (seq === castActorSeq) castActorList.innerHTML = `<div class="error">读取演员失败：${esc(e.message)}</div>`;
+    }
+  }
+
+  el('castBtn').onclick = openCastDialog;
+  el('castClose').onclick = closeCastDialog;
+  castOverlay.addEventListener('mousedown', e => { if (e.target === castOverlay) closeCastDialog(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && !castOverlay.hidden) closeCastDialog(); });
+  castMovieSearch.addEventListener('input', () => { clearTimeout(castMovieTimer); castMovieTimer = setTimeout(searchCastMovies, 300); });
+  castActorSearch.addEventListener('input', () => { clearTimeout(castActorTimer); castActorTimer = setTimeout(searchCastActors, 300); });
 
   search.addEventListener('input', () => {
     clearTimeout(searchTimer);

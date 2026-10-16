@@ -21,6 +21,14 @@ namespace Emby.ActorBrowser.Models
         public string Overview { get; set; }
     }
 
+    public sealed class CastMemberDto
+    {
+        public string Id { get; set; }
+        public long InternalId { get; set; }
+        public string Name { get; set; }
+        public string Role { get; set; }
+    }
+
     public sealed class MediaLibraryDto
     {
         public long Id { get; set; }

@@ -4,11 +4,16 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Threading;
+using System.Threading.Tasks;
 using MediaBrowser.Common.Configuration;
 using MediaBrowser.Common.Extensions;
 using MediaBrowser.Controller.Entities;
+using MediaBrowser.Controller.Entities.Movies;
+using MediaBrowser.Controller.Entities.TV;
 using MediaBrowser.Controller.Library;
 using MediaBrowser.Controller.Net;
+using MediaBrowser.Controller.Providers;
 using MediaBrowser.Model.Entities;
 using MediaBrowser.Model.Serialization;
 using MediaBrowser.Model.Services;
@@ -102,14 +107,45 @@ namespace Emby.ActorBrowser.Services
         public long ActorId { get; set; }
     }
 
+    [Route("/ActorBrowser/Movies", "GET", Summary = "Search movies and series by title")]
+    public sealed class SearchActorBrowserMovies
+    {
+        public string Search { get; set; }
+        public int? Limit { get; set; }
+    }
+
+    [Route("/ActorBrowser/Movies/{ItemId}/Cast", "GET", Summary = "List the actors currently attached to a movie or series")]
+    public sealed class GetMovieCast
+    {
+        public long ItemId { get; set; }
+    }
+
+    [Route("/ActorBrowser/Movies/{ItemId}/Cast", "POST", Summary = "Attach an actor (existing or new, matched by name) to a movie or series and write NFO (admin only)")]
+    public sealed class AddMovieCast
+    {
+        public long ItemId { get; set; }
+        public string Name { get; set; }
+        public string Role { get; set; }
+    }
+
+    [Route("/ActorBrowser/Movies/{ItemId}/Cast", "DELETE", Summary = "Detach an actor from a movie or series and write NFO (admin only)")]
+    public sealed class RemoveMovieCast
+    {
+        public long ItemId { get; set; }
+        public string Name { get; set; }
+    }
+
     /// <summary>
     /// Exposes a small same-origin HTML app and JSON endpoints.
     /// Emby authentication remains enabled; the page propagates a dedicated api_key to its own requests.
     /// </summary>
-    public sealed class ActorBrowserService : IService
+    public sealed class ActorBrowserService : IService, IRequiresRequest
     {
         private readonly ILibraryManager _libraryManager;
         private readonly IHttpResultFactory _resultFactory;
+        private readonly IAuthorizationContext _authContext;
+        private readonly IUserManager _userManager;
+        private readonly IProviderManager _providerManager;
         private readonly ActorListStore _listStore;
         private static readonly StringComparer NameComparer =
             StringComparer.Create(CultureInfo.GetCultureInfo("zh-CN"), true);
@@ -118,12 +154,20 @@ namespace Emby.ActorBrowser.Services
             ILibraryManager libraryManager,
             IHttpResultFactory resultFactory,
             IApplicationPaths appPaths,
-            IJsonSerializer jsonSerializer)
+            IJsonSerializer jsonSerializer,
+            IAuthorizationContext authContext,
+            IUserManager userManager,
+            IProviderManager providerManager)
         {
+            _providerManager = providerManager ?? throw new ArgumentNullException(nameof(providerManager));
+            _authContext = authContext ?? throw new ArgumentNullException(nameof(authContext));
+            _userManager = userManager ?? throw new ArgumentNullException(nameof(userManager));
             _libraryManager = libraryManager ?? throw new ArgumentNullException(nameof(libraryManager));
             _resultFactory = resultFactory ?? throw new ArgumentNullException(nameof(resultFactory));
             _listStore = new ActorListStore(appPaths, jsonSerializer);
         }
+
+        public IRequest Request { get; set; }
 
         public object Get(GetActorBrowserPage request)
         {
@@ -282,6 +326,171 @@ namespace Emby.ActorBrowser.Services
                 })
                 .OrderBy(x => x.Name, NameComparer)
                 .ToList();
+        }
+
+        public object Get(SearchActorBrowserMovies request)
+        {
+            var search = (request.Search ?? string.Empty).Trim();
+            var limit = Clamp(request.Limit ?? 30, 1, 100);
+            if (search.Length == 0) return new List<MediaItemDto>();
+
+            var query = new InternalItemsQuery
+            {
+                Recursive = true,
+                SearchTerm = search,
+                IncludeItemTypes = new[] { "Movie", "Series" },
+                Limit = limit
+            };
+
+            return _libraryManager.GetItemList(query)
+                .Where(x => x != null)
+                .Select(x => new MediaItemDto
+                {
+                    Id = x.Id.ToString("N"),
+                    InternalId = x.InternalId,
+                    Name = x.Name ?? string.Empty,
+                    Type = x.GetType().Name,
+                    ProductionYear = x.ProductionYear,
+                    Overview = x.Overview ?? string.Empty
+                })
+                .ToList();
+        }
+
+        public object Get(GetMovieCast request)
+        {
+            return ReadCast(ResolveMediaItem(request.ItemId));
+        }
+
+        public object Post(AddMovieCast request)
+        {
+            RequireAdmin();
+            var item = ResolveMediaItem(request.ItemId);
+            var name = (request.Name ?? string.Empty).Trim();
+            if (name.Length == 0) throw new ArgumentException("演员名称不能为空");
+            if (name.Length > 100) throw new ArgumentException("演员名称过长");
+
+            var people = _libraryManager.GetItemPeople(item) ?? new List<PersonInfo>();
+            var exists = people.Any(x => x.Type == PersonType.Actor &&
+                                         string.Equals(x.Name, name, StringComparison.OrdinalIgnoreCase));
+            if (!exists)
+            {
+                // Reuse the stored spelling when the actor already exists in the library.
+                var existing = FindPerson(name);
+                people.Add(new PersonInfo
+                {
+                    Name = existing != null ? existing.Name : name,
+                    Type = PersonType.Actor,
+                    Role = (request.Role ?? string.Empty).Trim()
+                });
+                SavePeople(item, people);
+
+                // A brand-new actor only becomes a browsable Person item after Emby validates people.
+                if (existing == null) ValidatePeopleInBackground();
+            }
+
+            return ReadCast(item);
+        }
+
+        public object Delete(RemoveMovieCast request)
+        {
+            RequireAdmin();
+            var item = ResolveMediaItem(request.ItemId);
+            var name = (request.Name ?? string.Empty).Trim();
+            if (name.Length == 0) throw new ArgumentException("演员名称不能为空");
+
+            var people = _libraryManager.GetItemPeople(item) ?? new List<PersonInfo>();
+            var removed = people.RemoveAll(x => x.Type == PersonType.Actor &&
+                                                string.Equals(x.Name, name, StringComparison.OrdinalIgnoreCase));
+            if (removed > 0) SavePeople(item, people);
+
+            return ReadCast(item);
+        }
+
+        private BaseItem ResolveMediaItem(long internalId)
+        {
+            var item = internalId > 0 ? _libraryManager.GetItemById(internalId) : null;
+            if (item == null || !(item is Movie || item is Series))
+            {
+                throw new ResourceNotFoundException("电影不存在");
+            }
+
+            return item;
+        }
+
+        private void SavePeople(BaseItem item, List<PersonInfo> people)
+        {
+            _libraryManager.UpdatePeople(item, people, false);
+            item.UpdateToRepository(ItemUpdateType.MetadataEdit);
+
+            // Explicitly write the .nfo so the change survives a refresh. This is a no-op for
+            // libraries whose NFO saver is disabled.
+            _providerManager.SaveMetadata(item, ItemUpdateType.MetadataEdit).GetAwaiter().GetResult();
+        }
+
+        private void ValidatePeopleInBackground()
+        {
+            Task.Run(async () =>
+            {
+                try
+                {
+                    await _libraryManager.ValidatePeople(CancellationToken.None, new Progress<double>()).ConfigureAwait(false);
+                }
+                catch
+                {
+                    // Best effort: the regular "scan people" task will pick the actor up later.
+                }
+            });
+        }
+
+        private List<CastMemberDto> ReadCast(BaseItem item)
+        {
+            var result = new List<CastMemberDto>();
+            foreach (var p in _libraryManager.GetItemPeople(item) ?? new List<PersonInfo>())
+            {
+                if (p.Type != PersonType.Actor) continue;
+
+                var person = FindPerson(p.Name);
+                result.Add(new CastMemberDto
+                {
+                    Id = person != null ? person.Id.ToString("N") : string.Empty,
+                    InternalId = person != null ? person.InternalId : 0,
+                    Name = p.Name ?? string.Empty,
+                    Role = p.Role ?? string.Empty
+                });
+            }
+
+            return result;
+        }
+
+        private BaseItem FindPerson(string name)
+        {
+            if (string.IsNullOrEmpty(name)) return null;
+
+            return _libraryManager.GetItemList(new InternalItemsQuery
+            {
+                IncludeItemTypes = new[] { "Person" },
+                Name = name,
+                Limit = 1
+            }).FirstOrDefault();
+        }
+
+        private void RequireAdmin()
+        {
+            var auth = _authContext.GetAuthorizationInfo(Request);
+            var userId = auth != null ? auth.UserId : 0;
+
+            // An administrator-issued api_key carries no user; any real user must be an admin.
+            if (userId <= 0)
+            {
+                if (auth != null && !string.IsNullOrEmpty(auth.Token)) return;
+                throw new SecurityException("需要管理员权限");
+            }
+
+            var user = _userManager.GetUserById(userId);
+            if (user == null || !user.Policy.IsAdministrator)
+            {
+                throw new SecurityException("需要管理员权限");
+            }
         }
 
         private int CountPeopleInLibrary(long libraryInternalId)
