@@ -339,11 +339,34 @@ namespace Emby.ActorBrowser.Services
                 Recursive = true,
                 SearchTerm = search,
                 IncludeItemTypes = new[] { "Movie", "Series" },
-                Limit = limit
+                // Query more than the public limit so collapsing merge-group duplicates below
+                // doesn't leave fewer distinct titles than the caller asked for.
+                Limit = Math.Min(limit * 4, 200)
             };
 
-            return _libraryManager.GetItemList(query)
-                .Where(x => x != null)
+            var results = _libraryManager.GetItemList(query).Where(x => x != null).ToList();
+
+            // A merged multi-version movie is still several separate library items under the
+            // hood, one per version file, all sharing the same title - without this each version
+            // shows up as its own row for what the user sees as a single movie. Series don't have
+            // alternate versions, so GetAlternateVersionIds is only meaningful for Video items
+            // (Movie) and naturally no-ops (via the "as Video" cast) for Series.
+            var seenGroupKeys = new HashSet<long>();
+            var deduped = new List<BaseItem>();
+            foreach (var x in results)
+            {
+                var alternateIds = (x as Video)?.GetAlternateVersionIds();
+                var groupKey = alternateIds == null || alternateIds.Count == 0
+                    ? x.InternalId
+                    : Math.Min(x.InternalId, alternateIds.Min());
+                if (seenGroupKeys.Add(groupKey))
+                {
+                    deduped.Add(x);
+                }
+            }
+
+            return deduped
+                .Take(limit)
                 .Select(x => new MediaItemDto
                 {
                     Id = x.Id.ToString("N"),
@@ -369,24 +392,36 @@ namespace Emby.ActorBrowser.Services
             if (name.Length == 0) throw new ArgumentException("演员名称不能为空");
             if (name.Length > 100) throw new ArgumentException("演员名称过长");
 
-            var people = _libraryManager.GetItemPeople(item) ?? new List<PersonInfo>();
-            var exists = people.Any(x => x.Type == PersonType.Actor &&
-                                         string.Equals(x.Name, name, StringComparison.OrdinalIgnoreCase));
-            if (!exists)
-            {
-                // Reuse the stored spelling when the actor already exists in the library.
-                var existing = FindPerson(name);
-                people.Add(new PersonInfo
-                {
-                    Name = existing != null ? existing.Name : name,
-                    Type = PersonType.Actor,
-                    Role = (request.Role ?? string.Empty).Trim()
-                });
-                SavePeople(item, people);
+            // Reuse the stored spelling when the actor already exists in the library.
+            var existing = FindPerson(name);
+            var resolvedName = existing != null ? existing.Name : name;
+            var role = (request.Role ?? string.Empty).Trim();
 
-                // A brand-new actor only becomes a browsable Person item after Emby validates people.
-                if (existing == null) ValidatePeopleInBackground();
+            // A merged multi-version movie is still several separate library items, one per
+            // version file, each with its own People record - Emby's detail page shows cast from
+            // whichever version it defaults to in the version picker, not necessarily this one,
+            // so writing the actor to only the item the caller picked can leave the movie looking
+            // cast-less. Apply the same add to every version in the group.
+            var addedAny = false;
+            foreach (var target in CollectMergeGroup(item))
+            {
+                var people = _libraryManager.GetItemPeople(target) ?? new List<PersonInfo>();
+                var alreadyHas = people.Any(x => x.Type == PersonType.Actor &&
+                                                 string.Equals(x.Name, resolvedName, StringComparison.OrdinalIgnoreCase));
+                if (!alreadyHas)
+                {
+                    people.Add(new PersonInfo { Name = resolvedName, Type = PersonType.Actor, Role = role });
+                    addedAny = true;
+                }
+
+                // Always resave, even when this particular target already had the actor: that's
+                // exactly the state a previous partial add can leave behind, and skipping the
+                // save here would permanently prevent ever fixing it through this endpoint.
+                SavePeople(target, people);
             }
+
+            // A brand-new actor only becomes a browsable Person item after Emby validates people.
+            if (addedAny && existing == null) ValidatePeopleInBackground();
 
             return ReadCast(item);
         }
@@ -398,10 +433,13 @@ namespace Emby.ActorBrowser.Services
             var name = (request.Name ?? string.Empty).Trim();
             if (name.Length == 0) throw new ArgumentException("演员名称不能为空");
 
-            var people = _libraryManager.GetItemPeople(item) ?? new List<PersonInfo>();
-            var removed = people.RemoveAll(x => x.Type == PersonType.Actor &&
-                                                string.Equals(x.Name, name, StringComparison.OrdinalIgnoreCase));
-            if (removed > 0) SavePeople(item, people);
+            foreach (var target in CollectMergeGroup(item))
+            {
+                var people = _libraryManager.GetItemPeople(target) ?? new List<PersonInfo>();
+                var removed = people.RemoveAll(x => x.Type == PersonType.Actor &&
+                                                    string.Equals(x.Name, name, StringComparison.OrdinalIgnoreCase));
+                if (removed > 0) SavePeople(target, people);
+            }
 
             return ReadCast(item);
         }
@@ -415,6 +453,30 @@ namespace Emby.ActorBrowser.Services
             }
 
             return item;
+        }
+
+        /// <summary>
+        /// A movie plus every other version merged into the same group (self-inclusive). Series
+        /// don't have alternate versions, so this is effectively a no-op single-item list for
+        /// them - the "as Video" cast naturally comes back null.
+        /// </summary>
+        private List<BaseItem> CollectMergeGroup(BaseItem item)
+        {
+            var targets = new List<BaseItem> { item };
+            var video = item as Video;
+            if (video != null)
+            {
+                foreach (var altId in video.GetAlternateVersionIds())
+                {
+                    var alt = _libraryManager.GetItemById(altId);
+                    if (alt != null)
+                    {
+                        targets.Add(alt);
+                    }
+                }
+            }
+
+            return targets;
         }
 
         private void SavePeople(BaseItem item, List<PersonInfo> people)
