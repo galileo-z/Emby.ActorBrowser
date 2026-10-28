@@ -481,11 +481,22 @@ namespace Emby.ActorBrowser.Services
                 .Select(g => new DuplicatePersonGroupDto
                 {
                     Name = g.Key,
+                    // GetPeople's own counts tuple (ReadWorkCount) isn't trustworthy on every
+                    // Emby build - count credits directly instead, the same proven way
+                    // GetActorBrowserItems and the merge logic below do it, by querying items
+                    // filtered to this specific PersonId. Only ever runs for the handful of
+                    // entries that already turned out to share a name, so a query per person
+                    // here is cheap.
                     People = g.Select(x => new DuplicatePersonDto
                         {
                             InternalId = x.Item1.InternalId,
                             Name = x.Item1.Name ?? string.Empty,
-                            WorkCount = ReadWorkCount(x.Item2)
+                            WorkCount = _libraryManager.GetItemsResult(new InternalItemsQuery
+                            {
+                                Recursive = true,
+                                PersonIds = new[] { x.Item1.InternalId },
+                                IncludeItemTypes = new[] { "Movie", "Series" }
+                            }).TotalRecordCount
                         })
                         .OrderByDescending(p => p.WorkCount)
                         .ToList()
