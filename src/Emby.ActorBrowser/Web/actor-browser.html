@@ -111,6 +111,15 @@
     .castAct.danger { background:#6b2a2a; }
     .castAct:disabled { opacity:.5; cursor:wait; }
     .castHint { color:var(--muted); font-size:12px; padding:6px 2px; }
+    .mergeDialog { width:min(680px,100%); }
+    .mergeBody { flex:1; min-height:0; display:flex; flex-direction:column; padding:14px; gap:10px; overflow-y:auto; }
+    .mergeToolbar { display:flex; align-items:center; gap:10px; }
+    .mergeGroups { display:flex; flex-direction:column; gap:12px; }
+    .dupGroup { background:#1a1a1a; border:1px solid #2a2a2a; border-radius:10px; padding:10px 12px; }
+    .dupGroupHead { font-size:13px; color:#ddd; margin-bottom:8px; word-break:break-all; }
+    .dupGroupRow { display:flex; align-items:center; gap:8px; padding:4px 0; font-size:13px; color:#ddd; }
+    .dupGroupRow .s { color:var(--muted); font-size:12px; }
+    .dupMergeBtn { margin-top:8px; }
     @media (max-width:700px) { .castBody { flex-direction:column; overflow-y:auto; } .castCol + .castCol { border-left:0; border-top:1px solid #2a2a2a; } .castList { min-height:180px; flex:none; } .castBtn { padding:8px 10px; } }
     @media (hover:none) { .editPhoto,.favBtn,.listBtn { opacity:.86; } }
     @media (max-width:600px){
@@ -152,6 +161,7 @@
           <h1 id="title">演员库</h1>
           <input id="search" class="search" placeholder="搜索演员…" autocomplete="off">
           <button id="castBtn" class="castBtn" type="button" title="按片名搜索电影，并为其添加演员">电影选演员</button>
+          <button id="mergeBtn" class="castBtn" type="button" title="找出名字完全相同的重复演员条目，合并成一个">合并重复演员</button>
           <a class="home" href="/web/index.html#!/home">返回 Emby</a>
         </div>
       </div>
@@ -179,6 +189,19 @@
           <input id="castRole" class="castInput" placeholder="饰演角色（可选，添加时使用）" autocomplete="off" maxlength="80" disabled>
           <div id="castActorList" class="castList"></div>
         </div>
+      </div>
+    </div>
+  </div>
+  <div id="mergeOverlay" class="castOverlay" hidden>
+    <div class="castDialog mergeDialog" role="dialog" aria-modal="true" aria-label="合并重复演员">
+      <div class="castHead"><span>合并重复演员</span><button id="mergeClose" class="castClose" type="button" aria-label="关闭">✕</button></div>
+      <div class="mergeBody">
+        <p class="castHint">扫描名字完全相同的演员条目（这种重复多半是 Emby 自己在不同时间重复创建出来的，比如同一个演员的文件夹分散在不同磁盘上）。每一组选一个"保留"，点合并后，该组其余条目上的所有作品会把演员名改写成保留的那个（同时写回 NFO），改完后多余的演员条目会被删除。这个操作改的是库里的演员记录，不会动视频文件本身。</p>
+        <div class="mergeToolbar">
+          <button id="scanDuplicatesBtn" class="castAct" type="button">扫描重复演员</button>
+          <span id="mergeMeta" class="castHint"></span>
+        </div>
+        <div id="duplicateGroups" class="mergeGroups"></div>
       </div>
     </div>
   </div>
@@ -1017,6 +1040,86 @@
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && !castOverlay.hidden) closeCastDialog(); });
   castMovieSearch.addEventListener('input', () => { clearTimeout(castMovieTimer); castMovieTimer = setTimeout(searchCastMovies, 300); });
   castActorSearch.addEventListener('input', () => { clearTimeout(castActorTimer); castActorTimer = setTimeout(searchCastActors, 300); });
+
+  // ---- Merge duplicate people: find Person entries sharing the exact same name ----
+  const mergeOverlay = el('mergeOverlay'), duplicateGroups = el('duplicateGroups'), mergeMeta = el('mergeMeta');
+
+  function openMergeDialog() {
+    mergeOverlay.hidden = false;
+    if (!duplicateGroups.children.length) scanDuplicates();
+  }
+
+  function closeMergeDialog() {
+    mergeOverlay.hidden = true;
+  }
+
+  async function scanDuplicates() {
+    el('scanDuplicatesBtn').disabled = true;
+    mergeMeta.textContent = '扫描中…';
+    duplicateGroups.innerHTML = '';
+    try {
+      const groups = await fetchJson(`${apiBase}/People/Duplicates`);
+      if (!groups.length) {
+        mergeMeta.textContent = '没有发现名字完全相同的重复演员。';
+        return;
+      }
+      mergeMeta.textContent = `共发现 ${groups.length} 组重复。`;
+      groups.forEach((g, gi) => renderDuplicateGroup(g, gi));
+    } catch (e) {
+      mergeMeta.textContent = '';
+      duplicateGroups.innerHTML = `<div class="error">扫描失败：${esc(e.message)}</div>`;
+    } finally {
+      el('scanDuplicatesBtn').disabled = false;
+    }
+  }
+
+  function renderDuplicateGroup(group, groupIndex) {
+    const name = group.Name ?? group.name ?? '';
+    const people = group.People ?? group.people ?? [];
+
+    const box = document.createElement('div');
+    box.className = 'dupGroup';
+    box.innerHTML = `<div class="dupGroupHead">「${esc(name)}」· 重复 ${people.length} 条</div>`;
+
+    people.forEach((p, pi) => {
+      const id = p.InternalId ?? p.internalId, count = p.WorkCount ?? p.workCount ?? 0;
+      const row = document.createElement('label');
+      row.className = 'dupGroupRow';
+      row.innerHTML = `<input type="radio" name="dupKeep${groupIndex}" value="${id}" ${pi === 0 ? 'checked' : ''}>`
+        + `<span>ID ${id}</span><span class="s">${count} 部作品</span>`;
+      box.appendChild(row);
+    });
+
+    const mergeBtn = document.createElement('button');
+    mergeBtn.className = 'castAct dupMergeBtn';
+    mergeBtn.type = 'button';
+    mergeBtn.textContent = '合并此组';
+    mergeBtn.onclick = async () => {
+      const keepInput = box.querySelector('input[type=radio]:checked');
+      if (!keepInput) { showToast('请先选一个要保留的条目', true); return; }
+      const keepId = parseInt(keepInput.value, 10);
+      const mergeIds = people
+        .map(p => p.InternalId ?? p.internalId)
+        .filter(id => id !== keepId);
+      mergeBtn.disabled = true;
+      try {
+        const r = await postJson(`${apiBase}/People/Merge`, { KeepPersonId: keepId, MergePersonIds: mergeIds });
+        showToast(r.Message ?? r.message ?? '合并完成');
+        box.remove();
+      } catch (e) {
+        showToast('合并失败：' + e.message, true);
+        mergeBtn.disabled = false;
+      }
+    };
+    box.appendChild(mergeBtn);
+    duplicateGroups.appendChild(box);
+  }
+
+  el('mergeBtn').onclick = openMergeDialog;
+  el('mergeClose').onclick = closeMergeDialog;
+  el('scanDuplicatesBtn').onclick = scanDuplicates;
+  mergeOverlay.addEventListener('mousedown', e => { if (e.target === mergeOverlay) closeMergeDialog(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && !mergeOverlay.hidden) closeMergeDialog(); });
 
   search.addEventListener('input', () => {
     clearTimeout(searchTimer);

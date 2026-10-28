@@ -135,6 +135,18 @@ namespace Emby.ActorBrowser.Services
         public string Name { get; set; }
     }
 
+    [Route("/ActorBrowser/People/Duplicates", "GET", Summary = "Find Person entries that share the exact same name and likely need merging")]
+    public sealed class GetDuplicatePeople
+    {
+    }
+
+    [Route("/ActorBrowser/People/Merge", "POST", Summary = "Merge one or more Person entries into a single target: rewrites that name on every credited item (writing NFO), then deletes the merged-away Person entries (admin only)")]
+    public sealed class MergePeople
+    {
+        public long KeepPersonId { get; set; }
+        public List<long> MergePersonIds { get; set; }
+    }
+
     /// <summary>
     /// Exposes a small same-origin HTML app and JSON endpoints.
     /// Emby authentication remains enabled; the page propagates a dedicated api_key to its own requests.
@@ -442,6 +454,137 @@ namespace Emby.ActorBrowser.Services
             }
 
             return ReadCast(item);
+        }
+
+        public object Get(GetDuplicatePeople request)
+        {
+            if (_libraryManager == null)
+            {
+                throw new InvalidOperationException("Actor Browser initialization error: ILibraryManager is null.");
+            }
+
+            // Emby's own people-validation can end up creating two separate Person library
+            // entries with the exact same Name (e.g. the same alias string scraped from two
+            // different folders under two different disks), rather than reusing the one that
+            // already exists. Grouping by exact name surfaces those cleanly and safely - it
+            // can't produce a false positive, since it only ever groups entries whose names are
+            // already character-for-character identical.
+            var people = _libraryManager.GetPeople(new InternalItemsQuery
+            {
+                Recursive = true,
+                PersonTypes = new[] { PersonType.Actor }
+            }).Items.Where(x => x != null && x.Item1 != null).ToList();
+
+            return people
+                .GroupBy(x => (x.Item1.Name ?? string.Empty).Trim(), StringComparer.Ordinal)
+                .Where(g => !string.IsNullOrEmpty(g.Key) && g.Count() > 1)
+                .Select(g => new DuplicatePersonGroupDto
+                {
+                    Name = g.Key,
+                    People = g.Select(x => new DuplicatePersonDto
+                        {
+                            InternalId = x.Item1.InternalId,
+                            Name = x.Item1.Name ?? string.Empty,
+                            WorkCount = ReadWorkCount(x.Item2)
+                        })
+                        .OrderByDescending(p => p.WorkCount)
+                        .ToList()
+                })
+                .OrderBy(g => g.Name, NameComparer)
+                .ToList();
+        }
+
+        public object Post(MergePeople request)
+        {
+            RequireAdmin();
+
+            var keep = _libraryManager.GetItemById(request.KeepPersonId);
+            if (keep == null || !(keep is Person))
+            {
+                throw new ResourceNotFoundException("要保留的演员条目不存在");
+            }
+
+            var mergeIds = (request.MergePersonIds ?? new List<long>())
+                .Where(id => id != request.KeepPersonId)
+                .Distinct()
+                .ToList();
+            if (mergeIds.Count == 0)
+            {
+                throw new ArgumentException("没有选择要合并掉的演员条目");
+            }
+
+            var keepName = keep.Name ?? string.Empty;
+            var affectedItems = 0;
+            var mergedPeople = 0;
+
+            foreach (var mergeId in mergeIds)
+            {
+                var source = _libraryManager.GetItemById(mergeId);
+                if (source == null || !(source is Person))
+                {
+                    continue;
+                }
+
+                var sourceName = source.Name ?? string.Empty;
+                if (sourceName.Length == 0)
+                {
+                    continue;
+                }
+
+                var creditedItems = _libraryManager.GetItemsResult(new InternalItemsQuery
+                {
+                    Recursive = true,
+                    PersonIds = new[] { mergeId },
+                    IncludeItemTypes = new[] { "Movie", "Series" }
+                }).Items ?? Array.Empty<BaseItem>();
+
+                foreach (var creditedItem in creditedItems)
+                {
+                    if (creditedItem == null)
+                    {
+                        continue;
+                    }
+
+                    var people = _libraryManager.GetItemPeople(creditedItem) ?? new List<PersonInfo>();
+                    var touched = false;
+                    foreach (var p in people)
+                    {
+                        if (string.Equals(p.Name, sourceName, StringComparison.OrdinalIgnoreCase))
+                        {
+                            p.Name = keepName;
+                            touched = true;
+                        }
+                    }
+
+                    if (!touched)
+                    {
+                        continue;
+                    }
+
+                    // Renaming above can leave two entries for the same (name, type) on one item
+                    // - one that already credited the keep name, one that just got renamed to
+                    // it. Collapse those, preferring whichever already had a Role filled in.
+                    var deduped = people
+                        .GroupBy(p => ((p.Name ?? string.Empty).Trim().ToLowerInvariant(), p.Type))
+                        .Select(g => g.OrderByDescending(p => !string.IsNullOrEmpty(p.Role)).First())
+                        .ToList();
+
+                    SavePeople(creditedItem, deduped);
+                    affectedItems++;
+                }
+
+                // The merged-away Person has no backing file on disk (it's metadata-only), so
+                // this only removes the library record - nothing is deleted from the filesystem.
+                _libraryManager.DeleteItem(source, new DeleteOptions { DeleteFileLocation = false });
+                mergedPeople++;
+            }
+
+            return new OperationResultDto
+            {
+                Success = true,
+                Message = $"已将 {mergedPeople} 个重复演员条目合并到「{keepName}」，更新了 {affectedItems} 个作品的演员信息",
+                AffectedCount = affectedItems
+            };
         }
 
         private BaseItem ResolveMediaItem(long internalId)

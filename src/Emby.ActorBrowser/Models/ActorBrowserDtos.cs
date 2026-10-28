@@ -43,4 +43,24 @@ namespace Emby.ActorBrowser.Models
         public int Limit { get; set; }
         public List<T> Items { get; set; }
     }
+
+    public sealed class DuplicatePersonDto
+    {
+        public long InternalId { get; set; }
+        public string Name { get; set; }
+        public int WorkCount { get; set; }
+    }
+
+    public sealed class DuplicatePersonGroupDto
+    {
+        public string Name { get; set; }
+        public List<DuplicatePersonDto> People { get; set; } = new List<DuplicatePersonDto>();
+    }
+
+    public sealed class OperationResultDto
+    {
+        public bool Success { get; set; }
+        public string Message { get; set; }
+        public int AffectedCount { get; set; }
+    }
 }
