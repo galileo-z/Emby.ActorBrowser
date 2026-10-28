@@ -917,13 +917,22 @@ namespace Emby.ActorBrowser.Services
         {
             if (itemCounts == null) return 0;
 
-            var direct = ReadIntProperty(itemCounts, "ItemCount") ??
-                         ReadIntProperty(itemCounts, "TotalCount");
-            if (direct.HasValue) return direct.Value;
-
+            // MovieCount/SeriesCount are what Emby's GetPeople actually populates for a person
+            // counts query - ItemCount/TotalCount come back present but always 0 here, and since
+            // ReadIntProperty found the property at all counted as "has a value", the old code
+            // returned that 0 immediately and never looked at Movie/SeriesCount, no matter what
+            // they held. Sum those first and only fall back to Item/TotalCount if that's zero
+            // too (covers a future/different Emby build where it's the other way around).
             var movie = ReadIntProperty(itemCounts, "MovieCount") ?? 0;
             var series = ReadIntProperty(itemCounts, "SeriesCount") ?? 0;
-            return movie + series;
+            if (movie + series > 0)
+            {
+                return movie + series;
+            }
+
+            return ReadIntProperty(itemCounts, "ItemCount") ??
+                   ReadIntProperty(itemCounts, "TotalCount") ??
+                   0;
         }
 
         private static int? ReadIntProperty(object value, string name)
