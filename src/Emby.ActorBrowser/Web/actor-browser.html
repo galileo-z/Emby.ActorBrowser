@@ -1083,10 +1083,15 @@
 
     people.forEach((p, pi) => {
       const id = p.InternalId ?? p.internalId, count = p.WorkCount ?? p.workCount ?? 0;
+      const score = p.CompletenessScore ?? p.completenessScore ?? 0;
+      // The list already comes back sorted by completeness first, work count second, so index 0
+      // is the one worth keeping - call that out explicitly rather than leaving the pre-checked
+      // radio as the only clue.
+      const recommended = pi === 0 && people.length > 1 ? '<span class="s" style="color:var(--accent)">资料更完整，推荐保留</span>' : '';
       const row = document.createElement('label');
       row.className = 'dupGroupRow';
       row.innerHTML = `<input type="radio" name="dupKeep${groupIndex}" value="${id}" ${pi === 0 ? 'checked' : ''}>`
-        + `<span>ID ${id}</span><span class="s">${count} 部作品</span>`;
+        + `<span>ID ${id}</span><span class="s">${count} 部作品 · 资料完整度 ${score}</span>${recommended}`;
       box.appendChild(row);
     });
 

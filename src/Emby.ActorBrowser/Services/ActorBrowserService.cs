@@ -496,13 +496,36 @@ namespace Emby.ActorBrowser.Services
                                 Recursive = true,
                                 PersonIds = new[] { x.Item1.InternalId },
                                 IncludeItemTypes = new[] { "Movie", "Series" }
-                            }).TotalRecordCount
+                            }).TotalRecordCount,
+                            CompletenessScore = PersonCompletenessScore(x.Item1)
                         })
-                        .OrderByDescending(p => p.WorkCount)
+                        // The entry with more metadata on it is the one worth keeping - losing a
+                        // photo or a bio by merging into the emptier duplicate would be a real
+                        // regression, so completeness outranks work count. Work count only
+                        // breaks a tie when both entries are equally (in)complete.
+                        .OrderByDescending(p => p.CompletenessScore)
+                        .ThenByDescending(p => p.WorkCount)
                         .ToList()
                 })
                 .OrderBy(g => g.Name, NameComparer)
                 .ToList();
+        }
+
+        /// <summary>
+        /// How much metadata a Person entry actually has on it - used to pick which of several
+        /// same-named duplicates is worth keeping. A photo and a bio are weighted heaviest since
+        /// losing either by merging into the emptier duplicate would be a visible regression;
+        /// each provider id adds a little more (an entry someone bothered to link externally is
+        /// more likely to be the "real" one).
+        /// </summary>
+        private static int PersonCompletenessScore(BaseItem person)
+        {
+            var score = 0;
+            if (person.HasImage(ImageType.Primary, 0)) score += 2;
+            if (!string.IsNullOrWhiteSpace(person.Overview)) score += 2;
+            if (person.PremiereDate.HasValue) score += 1;
+            if (person.ProviderIds != null) score += person.ProviderIds.Count;
+            return score;
         }
 
         public object Post(MergePeople request)

@@ -49,6 +49,7 @@ namespace Emby.ActorBrowser.Models
         public long InternalId { get; set; }
         public string Name { get; set; }
         public int WorkCount { get; set; }
+        public int CompletenessScore { get; set; }
     }
 
     public sealed class DuplicatePersonGroupDto
